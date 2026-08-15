@@ -1,12 +1,26 @@
 {
   "name": "graph-editor",
   "version": "1.0.0",
-  "description": "",
+  "description": "Browser-only RDF graph editor: PyScript/rdflib for RDF logic, React Flow for the canvas.",
   "license": "Apache-2.0",
   "author": "Jeremy Nelson",
-  "type": "commonjs",
-  "main": "index.js",
+  "type": "module",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.11.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1"
   }
 }

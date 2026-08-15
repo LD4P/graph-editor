@@ -1,7 +1,16 @@
 [project]
 name = "graph-editor"
 version = "0.1.0"
-description = "Add your description here"
+description = "Browser-only RDF graph editor: PyScript/rdflib for RDF logic, React Flow for the canvas."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
+
+[tool.pytest.ini_options]
+pythonpath = ["public/py"]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

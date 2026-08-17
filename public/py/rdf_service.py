@@ -293,6 +293,34 @@ def delete_property(node_id, predicate_iri, value, datatype=None, language=None)
     return _project(_graph)
 
 
+def update_property(
+    node_id,
+    predicate_iri,
+    old_value,
+    old_datatype,
+    old_language,
+    new_value,
+    new_datatype=None,
+    new_language=None,
+):
+    _snapshot()
+    subject = _term_from_id(node_id)
+    predicate = rdflib.URIRef(predicate_iri)
+    old_literal = rdflib.Literal(
+        old_value,
+        datatype=rdflib.URIRef(old_datatype) if old_datatype else None,
+        lang=old_language or None,
+    )
+    new_literal = rdflib.Literal(
+        new_value,
+        datatype=rdflib.URIRef(new_datatype) if new_datatype else None,
+        lang=new_language or None,
+    )
+    _graph.remove((subject, predicate, old_literal))
+    _graph.add((subject, predicate, new_literal))
+    return _project(_graph)
+
+
 if sync is not None:
     sync.ping = ping
     sync.load_rdf = load_rdf
@@ -311,6 +339,7 @@ if sync is not None:
     sync.delete_edge = delete_edge
     sync.add_property = add_property
     sync.delete_property = delete_property
+    sync.update_property = update_property
     sync.history_status = history_status
     sync.undo = undo
     sync.redo = redo

@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import type { RdfProperty, RdfType } from "../model/rdfGraphModel";
-import { deleteProperty, deleteType } from "../lib/pyBridge";
+import { deleteProperty, deleteType, updateProperty } from "../lib/pyBridge";
 import { useGraphStore } from "../state/graphStore";
 
 export interface ResourceNodeData extends Record<string, unknown> {
@@ -20,6 +21,8 @@ function formatProperty(property: RdfProperty): string {
 
 export default function ResourceNode({ id, data, selected }: NodeProps<ResourceNode>) {
   const setProjection = useGraphStore((state) => state.setProjection);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   async function handleDeleteType(type: RdfType) {
     setProjection(await deleteType(id, type.typeIri));
@@ -28,6 +31,29 @@ export default function ResourceNode({ id, data, selected }: NodeProps<ResourceN
   async function handleDeleteProperty(property: RdfProperty) {
     setProjection(
       await deleteProperty(id, property.predicateIri, property.value, property.datatype, property.language),
+    );
+  }
+
+  function startEditing(index: number, property: RdfProperty) {
+    setEditingIndex(index);
+    setEditValue(property.value);
+  }
+
+  async function commitEdit(property: RdfProperty) {
+    setEditingIndex(null);
+    const trimmed = editValue.trim();
+    if (!trimmed || trimmed === property.value) return;
+    setProjection(
+      await updateProperty(
+        id,
+        property.predicateIri,
+        property.value,
+        property.datatype,
+        property.language,
+        trimmed,
+        property.datatype,
+        property.language,
+      ),
     );
   }
 
@@ -94,7 +120,25 @@ export default function ResourceNode({ id, data, selected }: NodeProps<ResourceN
                 >
                   {property.predicate}
                 </td>
-                <td style={{ padding: "2px 8px" }}>{formatProperty(property)}</td>
+                <td style={{ padding: "2px 8px" }}>
+                  {editingIndex === index ? (
+                    <input
+                      autoFocus
+                      value={editValue}
+                      onChange={(event) => setEditValue(event.target.value)}
+                      onBlur={() => commitEdit(property)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") commitEdit(property);
+                        if (event.key === "Escape") setEditingIndex(null);
+                      }}
+                      style={{ width: "100%", fontSize: 12 }}
+                    />
+                  ) : (
+                    <span title="Double-click to edit" onDoubleClick={() => startEditing(index, property)}>
+                      {formatProperty(property)}
+                    </span>
+                  )}
+                </td>
                 <td style={{ padding: "2px 4px" }}>
                   <button
                     title="Remove property"

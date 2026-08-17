@@ -18,6 +18,7 @@ from rdf_service import (
     serialize_rdf,
     set_namespace,
     undo,
+    update_property,
     validate_shacl,
 )
 
@@ -160,6 +161,24 @@ def test_add_and_delete_property():
     projection = delete_property(ALICE, NAME, "Alice", None, None)
     alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
     assert alice["properties"] == []
+
+
+def test_update_property_replaces_value_in_a_single_undoable_step():
+    load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
+    add_property(ALICE, NAME, "Alice", None, None)
+
+    projection = update_property(ALICE, NAME, "Alice", None, None, "Alicia", None, None)
+    alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
+    assert len(alice["properties"]) == 1
+    assert alice["properties"][0]["value"] == "Alicia"
+
+    # A single undo must restore the old value, not leave the property gone
+    # (which is what would happen if update_property were delete+add as two
+    # separately snapshotted mutations).
+    projection = undo()
+    alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
+    assert len(alice["properties"]) == 1
+    assert alice["properties"][0]["value"] == "Alice"
 
 
 def test_serialize_rdf_round_trips_through_a_different_format():

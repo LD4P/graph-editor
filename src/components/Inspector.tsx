@@ -1,6 +1,7 @@
 import { useState } from "react";
+import type { RdfProperty } from "../model/rdfGraphModel";
 import { useGraphStore } from "../state/graphStore";
-import { addProperty, addType, deleteNode, renameNode } from "../lib/pyBridge";
+import { addProperty, addType, deleteNode, deleteProperty, renameNode, updateProperty } from "../lib/pyBridge";
 
 const panelStyle: React.CSSProperties = {
   width: 280,
@@ -23,6 +24,10 @@ export default function Inspector() {
   const [typeIri, setTypeIri] = useState("");
   const [propPredicate, setPropPredicate] = useState("");
   const [propValue, setPropValue] = useState("");
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editDatatype, setEditDatatype] = useState("");
+  const [editLanguage, setEditLanguage] = useState("");
 
   const node = projection.nodes.find((candidate) => candidate.id === selectedNodeId);
 
@@ -63,6 +68,41 @@ export default function Inspector() {
     setPropValue("");
   }
 
+  function startEditingProperty(index: number, property: RdfProperty) {
+    setEditingIndex(index);
+    setEditValue(property.value);
+    setEditDatatype(property.datatype ?? "");
+    setEditLanguage(property.language ?? "");
+  }
+
+  function cancelEditingProperty() {
+    setEditingIndex(null);
+  }
+
+  async function handleSaveProperty(property: RdfProperty) {
+    const trimmed = editValue.trim();
+    if (!trimmed) return;
+    setProjection(
+      await updateProperty(
+        node!.id,
+        property.predicateIri,
+        property.value,
+        property.datatype,
+        property.language,
+        trimmed,
+        editDatatype.trim() || null,
+        editLanguage.trim() || null,
+      ),
+    );
+    setEditingIndex(null);
+  }
+
+  async function handleDeleteProperty(property: RdfProperty) {
+    setProjection(
+      await deleteProperty(node!.id, property.predicateIri, property.value, property.datatype, property.language),
+    );
+  }
+
   return (
     <aside style={panelStyle}>
       <h3 style={{ margin: 0, wordBreak: "break-all", fontSize: 13 }}>{node.id}</h3>
@@ -82,6 +122,50 @@ export default function Inspector() {
       <button onClick={handleAddType}>Add type</button>
 
       <hr style={{ width: "100%" }} />
+
+      {node.properties.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {node.properties.map((property, index) =>
+            editingIndex === index ? (
+              <div
+                key={`${property.predicateIri}-${index}`}
+                style={{ display: "flex", flexDirection: "column", gap: 4, border: "1px solid #ddd", padding: 6 }}
+              >
+                <span style={{ color: "#555" }}>{property.predicate}</span>
+                <input value={editValue} onChange={(event) => setEditValue(event.target.value)} placeholder="Value" autoFocus />
+                <input
+                  value={editDatatype}
+                  onChange={(event) => setEditDatatype(event.target.value)}
+                  placeholder="Datatype IRI (optional)"
+                />
+                <input
+                  value={editLanguage}
+                  onChange={(event) => setEditLanguage(event.target.value)}
+                  placeholder="Language tag (optional)"
+                />
+                <div style={{ display: "flex", gap: 4 }}>
+                  <button onClick={() => handleSaveProperty(property)}>Save</button>
+                  <button onClick={cancelEditingProperty}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div
+                key={`${property.predicateIri}-${index}`}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 4 }}
+              >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ color: "#555" }}>{property.predicate}: </span>
+                  {property.value}
+                </span>
+                <span style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => startEditingProperty(index, property)}>Edit</button>
+                  <button onClick={() => handleDeleteProperty(property)}>×</button>
+                </span>
+              </div>
+            ),
+          )}
+        </div>
+      )}
 
       <label style={{ display: "flex", flexDirection: "column" }}>
         Predicate IRI

@@ -109,3 +109,25 @@ export const deleteProperty = (
     datatype,
     language,
   );
+
+export const updateProperty = (
+  nodeId: string,
+  predicateIri: string,
+  oldValue: string,
+  oldDatatype: string | null,
+  oldLanguage: string | null,
+  newValue: string,
+  newDatatype: string | null,
+  newLanguage: string | null,
+) =>
+  call<RdfProjection>(
+    "update_property",
+    nodeId,
+    predicateIri,
+    oldValue,
+    oldDatatype,
+    oldLanguage,
+    newValue,
+    newDatatype,
+    newLanguage,
+  );

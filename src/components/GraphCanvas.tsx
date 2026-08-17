@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Background,
   Controls,
+  MiniMap,
   ReactFlow,
   type Edge,
   type Node,
@@ -100,6 +101,7 @@ export default function GraphCanvas() {
     >
       <Background />
       <Controls />
+      <MiniMap />
     </ReactFlow>
   );
 }

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { addNode, loadRdf, serializeRdf } from "../lib/pyBridge";
+import { addNode, loadRdf, redo, serializeRdf, undo } from "../lib/pyBridge";
 import { FORMATS, FILE_EXTENSIONS } from "../lib/rdfFormats";
 import { useGraphStore } from "../state/graphStore";
 import { useDialogStore } from "../state/dialogStore";
@@ -20,6 +20,8 @@ export default function Toolbar() {
   const setProjection = useGraphStore((state) => state.setProjection);
   const resetPositions = useGraphStore((state) => state.resetPositions);
   const selectNode = useGraphStore((state) => state.selectNode);
+  const canUndo = useGraphStore((state) => state.canUndo);
+  const canRedo = useGraphStore((state) => state.canRedo);
   const openDialog = useDialogStore((state) => state.openDialog);
   const toggleValidationPanel = usePanelStore((state) => state.toggleValidationPanel);
   const toggleNamespacePanel = usePanelStore((state) => state.toggleNamespacePanel);
@@ -105,6 +107,14 @@ export default function Toolbar() {
     }
   }
 
+  async function handleUndo() {
+    setProjection(await undo());
+  }
+
+  async function handleRedo() {
+    setProjection(await redo());
+  }
+
   function handleAddResource() {
     openDialog({
       title: "Add resource",
@@ -130,6 +140,13 @@ export default function Toolbar() {
       }}
     >
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <button onClick={handleUndo} disabled={!canUndo}>
+          Undo
+        </button>
+        <button onClick={handleRedo} disabled={!canRedo}>
+          Redo
+        </button>
+
         <label>
           Format:{" "}
           <select value={format} onChange={(event) => setFormat(event.target.value)}>

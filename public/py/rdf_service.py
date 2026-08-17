@@ -9,7 +9,48 @@ from pyshacl import validate as _shacl_validate
 
 SH = rdflib.Namespace("http://www.w3.org/ns/shacl#")
 
+HISTORY_LIMIT = 50
+
 _graph = rdflib.Graph()
+_history = []
+_future = []
+
+
+def _snapshot():
+    _history.append(_graph.serialize(format="turtle"))
+    if len(_history) > HISTORY_LIMIT:
+        _history.pop(0)
+    _future.clear()
+
+
+def history_status():
+    return {"canUndo": bool(_history), "canRedo": bool(_future)}
+
+
+def undo():
+    global _graph
+    if not _history:
+        return _project(_graph)
+    _future.append(_graph.serialize(format="turtle"))
+    if len(_future) > HISTORY_LIMIT:
+        _future.pop(0)
+    graph = rdflib.Graph()
+    graph.parse(data=_history.pop(), format="turtle")
+    _graph = graph
+    return _project(_graph)
+
+
+def redo():
+    global _graph
+    if not _future:
+        return _project(_graph)
+    _history.append(_graph.serialize(format="turtle"))
+    if len(_history) > HISTORY_LIMIT:
+        _history.pop(0)
+    graph = rdflib.Graph()
+    graph.parse(data=_future.pop(), format="turtle")
+    _graph = graph
+    return _project(_graph)
 
 
 def ping():
@@ -93,6 +134,7 @@ def _project(graph):
 
 def load_rdf(text, format="turtle"):
     global _graph
+    _snapshot()
     graph = rdflib.Graph()
     graph.parse(data=text, format=format)
     _graph = graph
@@ -167,11 +209,13 @@ def validate_shacl(shapes_text, shapes_format="turtle"):
 
 
 def add_node(iri, type_iri):
+    _snapshot()
     _graph.add((rdflib.URIRef(iri), RDF.type, rdflib.URIRef(type_iri)))
     return _project(_graph)
 
 
 def rename_node(old_id, new_iri):
+    _snapshot()
     old_term = _term_from_id(old_id)
     new_term = rdflib.URIRef(new_iri)
     for s, p, o in list(_graph.triples((old_term, None, None))):
@@ -184,6 +228,7 @@ def rename_node(old_id, new_iri):
 
 
 def delete_node(node_id):
+    _snapshot()
     term = _term_from_id(node_id)
     _graph.remove((term, None, None))
     _graph.remove((None, None, term))
@@ -191,16 +236,19 @@ def delete_node(node_id):
 
 
 def add_type(node_id, type_iri):
+    _snapshot()
     _graph.add((_term_from_id(node_id), RDF.type, rdflib.URIRef(type_iri)))
     return _project(_graph)
 
 
 def delete_type(node_id, type_iri):
+    _snapshot()
     _graph.remove((_term_from_id(node_id), RDF.type, rdflib.URIRef(type_iri)))
     return _project(_graph)
 
 
 def add_edge(source_id, predicate_iri, target_id):
+    _snapshot()
     _graph.add(
         (
             _term_from_id(source_id),
@@ -212,6 +260,7 @@ def add_edge(source_id, predicate_iri, target_id):
 
 
 def delete_edge(source_id, predicate_iri, target_id):
+    _snapshot()
     _graph.remove(
         (
             _term_from_id(source_id),
@@ -223,6 +272,7 @@ def delete_edge(source_id, predicate_iri, target_id):
 
 
 def add_property(node_id, predicate_iri, value, datatype=None, language=None):
+    _snapshot()
     literal = rdflib.Literal(
         value,
         datatype=rdflib.URIRef(datatype) if datatype else None,
@@ -233,6 +283,7 @@ def add_property(node_id, predicate_iri, value, datatype=None, language=None):
 
 
 def delete_property(node_id, predicate_iri, value, datatype=None, language=None):
+    _snapshot()
     literal = rdflib.Literal(
         value,
         datatype=rdflib.URIRef(datatype) if datatype else None,
@@ -260,3 +311,6 @@ if sync is not None:
     sync.delete_edge = delete_edge
     sync.add_property = add_property
     sync.delete_property = delete_property
+    sync.history_status = history_status
+    sync.undo = undo
+    sync.redo = redo

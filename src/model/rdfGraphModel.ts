@@ -53,3 +53,8 @@ export interface SetNamespaceResult {
   projection: RdfProjection;
   namespaces: RdfNamespace[];
 }
+
+export interface HistoryStatus {
+  canUndo: boolean;
+  canRedo: boolean;
+}

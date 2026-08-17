@@ -1,4 +1,5 @@
 import type {
+  HistoryStatus,
   RdfNamespace,
   RdfProjection,
   SetNamespaceResult,
@@ -57,6 +58,12 @@ export const listNamespaces = () => call<RdfNamespace[]>("list_namespaces");
 
 export const setNamespace = (prefix: string, uri: string) =>
   call<SetNamespaceResult>("set_namespace", prefix, uri);
+
+export const historyStatus = () => call<HistoryStatus>("history_status");
+
+export const undo = () => call<RdfProjection>("undo");
+
+export const redo = () => call<RdfProjection>("redo");
 
 export const addNode = (iri: string, typeIri: string) =>
   call<RdfProjection>("add_node", iri, typeIri);

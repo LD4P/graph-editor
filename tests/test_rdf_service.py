@@ -8,13 +8,16 @@ from rdf_service import (
     delete_node,
     delete_property,
     delete_type,
+    history_status,
     list_namespaces,
     list_predicates,
     load_rdf,
     ping,
+    redo,
     rename_node,
     serialize_rdf,
     set_namespace,
+    undo,
     validate_shacl,
 )
 
@@ -234,6 +237,68 @@ def test_set_namespace_changes_compaction_of_new_terms():
     assert namespaces["ex"] == "http://example.org/"
 
     assert result["projection"]["edges"][0]["predicate"] == "ex:knows"
+
+
+def test_undo_reverts_last_mutation():
+    load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
+    add_node(ALICE, PERSON)
+    assert history_status()["canUndo"] is True
+
+    projection = undo()
+    ids = {n["id"] for n in projection["nodes"]}
+    assert ids == {ALICE, BOB}
+    (edge,) = projection["edges"]
+    assert edge["source"] == ALICE
+    assert edge["target"] == BOB
+    assert edge["predicateIri"] == KNOWS
+
+
+def test_redo_reapplies_undone_mutation():
+    load_rdf("", format="nt")
+    add_node(ALICE, PERSON)
+    undo()
+    assert history_status()["canRedo"] is True
+
+    projection = redo()
+    (node,) = projection["nodes"]
+    assert node["id"] == ALICE
+    assert [t["typeIri"] for t in node["types"]] == [PERSON]
+    assert history_status()["canRedo"] is False
+
+
+def test_new_mutation_after_undo_clears_redo_stack():
+    load_rdf("", format="nt")
+    add_node(ALICE, PERSON)
+    undo()
+    assert history_status()["canRedo"] is True
+
+    add_node(BOB, PERSON)
+    assert history_status()["canRedo"] is False
+
+
+def test_undo_and_redo_are_no_ops_when_history_is_empty():
+    load_rdf("", format="nt")
+    while history_status()["canUndo"]:
+        undo()
+    projection_before = undo()
+    assert projection_before == current_projection()
+
+    while history_status()["canRedo"]:
+        redo()
+    projection_after = redo()
+    assert projection_after == current_projection()
+
+
+def test_history_is_capped_at_fifty_entries():
+    load_rdf("", format="nt")
+    for i in range(60):
+        add_node(f"http://example.org/n{i}", PERSON)
+
+    undo_count = 0
+    while history_status()["canUndo"]:
+        undo()
+        undo_count += 1
+    assert undo_count == 50
 
 
 def test_list_predicates_returns_unique_full_iris():

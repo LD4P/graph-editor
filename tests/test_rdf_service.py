@@ -12,6 +12,7 @@ from rdf_service import (
     load_rdf,
     ping,
     rename_node,
+    serialize_rdf,
 )
 
 ALICE = "http://example.org/alice"
@@ -153,6 +154,20 @@ def test_add_and_delete_property():
     projection = delete_property(ALICE, NAME, "Alice", None, None)
     alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
     assert alice["properties"] == []
+
+
+def test_serialize_rdf_round_trips_through_a_different_format():
+    load_rdf(
+        """
+        @prefix ex: <http://example.org/> .
+        ex:alice ex:knows ex:bob .
+        """
+    )
+    nt_text = serialize_rdf("nt")
+    assert f"<{ALICE}>" in nt_text and f"<{KNOWS}>" in nt_text and f"<{BOB}>" in nt_text
+
+    reloaded = load_rdf(nt_text, format="nt")
+    assert {n["id"] for n in reloaded["nodes"]} == {ALICE, BOB}
 
 
 def test_list_predicates_returns_unique_full_iris():

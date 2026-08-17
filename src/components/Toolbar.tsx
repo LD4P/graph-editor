@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { addNode, loadRdf } from "../lib/pyBridge";
+import { addNode, loadRdf, serializeRdf } from "../lib/pyBridge";
 import { useGraphStore } from "../state/graphStore";
 import { useDialogStore } from "../state/dialogStore";
 
@@ -21,6 +21,13 @@ const FORMATS = [
   { value: "nt", label: "N-Triples (.nt)" },
 ];
 
+const FILE_EXTENSIONS: Record<string, string> = {
+  turtle: "ttl",
+  xml: "rdf",
+  "json-ld": "jsonld",
+  nt: "nt",
+};
+
 export default function Toolbar() {
   const setProjection = useGraphStore((state) => state.setProjection);
   const resetPositions = useGraphStore((state) => state.resetPositions);
@@ -29,6 +36,8 @@ export default function Toolbar() {
 
   const [text, setText] = useState(SAMPLE_TURTLE);
   const [format, setFormat] = useState("turtle");
+  const [exportFormat, setExportFormat] = useState("turtle");
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -76,6 +85,33 @@ export default function Toolbar() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDownload() {
+    setExportStatus(null);
+    try {
+      const rdfText = await serializeRdf(exportFormat);
+      const blob = new Blob([rdfText], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `graph.${FILE_EXTENSIONS[exportFormat]}`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportStatus(`Export failed: ${String(err)}`);
+    }
+  }
+
+  async function handleCopy() {
+    setExportStatus(null);
+    try {
+      const rdfText = await serializeRdf(exportFormat);
+      await navigator.clipboard.writeText(rdfText);
+      setExportStatus("Copied to clipboard.");
+    } catch (err) {
+      setExportStatus(`Copy failed: ${String(err)}`);
     }
   }
 
@@ -140,6 +176,22 @@ export default function Toolbar() {
         <button onClick={handleAddResource} style={{ marginLeft: "auto" }}>
           Add resource
         </button>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <label>
+          Export as:{" "}
+          <select value={exportFormat} onChange={(event) => setExportFormat(event.target.value)}>
+            {FORMATS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button onClick={handleDownload}>Download</button>
+        <button onClick={handleCopy}>Copy to clipboard</button>
+        {exportStatus && <span>{exportStatus}</span>}
       </div>
 
       <textarea

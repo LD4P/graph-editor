@@ -41,6 +41,8 @@ export const loadRdf = (text: string, format: string) =>
 export const currentProjection = () =>
   call<RdfProjection>("current_projection");
 
+export const serializeRdf = (format: string) => call<string>("serialize_rdf", format);
+
 export const listPredicates = () => call<string[]>("list_predicates");
 
 export const addNode = (iri: string, typeIri: string) =>

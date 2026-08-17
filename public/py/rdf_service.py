@@ -100,6 +100,10 @@ def current_projection():
     return _project(_graph)
 
 
+def serialize_rdf(format="turtle"):
+    return _graph.serialize(format=format)
+
+
 def list_predicates():
     return sorted({str(p) for p in _graph.predicates()})
 
@@ -184,6 +188,7 @@ if sync is not None:
     sync.ping = ping
     sync.load_rdf = load_rdf
     sync.current_projection = current_projection
+    sync.serialize_rdf = serialize_rdf
     sync.list_predicates = list_predicates
     sync.add_node = add_node
     sync.rename_node = rename_node

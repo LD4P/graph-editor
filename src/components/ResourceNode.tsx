@@ -1,10 +1,12 @@
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
-import type { RdfProperty } from "../model/rdfGraphModel";
+import type { RdfProperty, RdfType } from "../model/rdfGraphModel";
+import { deleteProperty, deleteType } from "../lib/pyBridge";
+import { useGraphStore } from "../state/graphStore";
 
 export interface ResourceNodeData extends Record<string, unknown> {
   iri: string;
   label: string;
-  types: string[];
+  types: RdfType[];
   properties: RdfProperty[];
 }
 
@@ -16,11 +18,23 @@ function formatProperty(property: RdfProperty): string {
   return property.value;
 }
 
-export default function ResourceNode({ data }: NodeProps<ResourceNode>) {
+export default function ResourceNode({ id, data, selected }: NodeProps<ResourceNode>) {
+  const setProjection = useGraphStore((state) => state.setProjection);
+
+  async function handleDeleteType(type: RdfType) {
+    setProjection(await deleteType(id, type.typeIri));
+  }
+
+  async function handleDeleteProperty(property: RdfProperty) {
+    setProjection(
+      await deleteProperty(id, property.predicateIri, property.value, property.datatype, property.language),
+    );
+  }
+
   return (
     <div
       style={{
-        border: "1px solid #999",
+        border: selected ? "2px solid #4a6cf7" : "1px solid #999",
         borderRadius: 6,
         background: "white",
         minWidth: 200,
@@ -43,15 +57,25 @@ export default function ResourceNode({ data }: NodeProps<ResourceNode>) {
         <span>{data.label}</span>
         {data.types.map((type) => (
           <span
-            key={type}
+            key={type.typeIri}
             style={{
               background: "#eef",
               borderRadius: 4,
               padding: "0 4px",
               fontWeight: 400,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
             }}
           >
-            {type}
+            {type.type}
+            <button
+              title="Remove type"
+              onClick={() => handleDeleteType(type)}
+              style={{ border: "none", background: "none", cursor: "pointer", padding: 0 }}
+            >
+              ×
+            </button>
           </span>
         ))}
       </div>
@@ -59,7 +83,7 @@ export default function ResourceNode({ data }: NodeProps<ResourceNode>) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <tbody>
             {data.properties.map((property, index) => (
-              <tr key={`${property.predicate}-${index}`}>
+              <tr key={`${property.predicateIri}-${index}`}>
                 <td
                   style={{
                     padding: "2px 8px",
@@ -70,8 +94,15 @@ export default function ResourceNode({ data }: NodeProps<ResourceNode>) {
                 >
                   {property.predicate}
                 </td>
-                <td style={{ padding: "2px 8px" }}>
-                  {formatProperty(property)}
+                <td style={{ padding: "2px 8px" }}>{formatProperty(property)}</td>
+                <td style={{ padding: "2px 4px" }}>
+                  <button
+                    title="Remove property"
+                    onClick={() => handleDeleteProperty(property)}
+                    style={{ border: "none", background: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    ×
+                  </button>
                 </td>
               </tr>
             ))}

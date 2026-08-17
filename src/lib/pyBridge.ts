@@ -28,20 +28,62 @@ function getWorker(): Promise<PyWorkerHandle> {
   return workerPromise;
 }
 
-export async function ping(): Promise<string> {
+async function call<T>(name: string, ...args: unknown[]): Promise<T> {
   const worker = await getWorker();
-  return (await worker.sync.ping()) as string;
+  return (await worker.sync[name](...args)) as T;
 }
 
-export async function loadRdf(
-  text: string,
-  format: string,
-): Promise<RdfProjection> {
-  const worker = await getWorker();
-  return (await worker.sync.load_rdf(text, format)) as RdfProjection;
-}
+export const ping = () => call<string>("ping");
 
-export async function currentProjection(): Promise<RdfProjection> {
-  const worker = await getWorker();
-  return (await worker.sync.current_projection()) as RdfProjection;
-}
+export const loadRdf = (text: string, format: string) =>
+  call<RdfProjection>("load_rdf", text, format);
+
+export const currentProjection = () =>
+  call<RdfProjection>("current_projection");
+
+export const listPredicates = () => call<string[]>("list_predicates");
+
+export const addNode = (iri: string, typeIri: string) =>
+  call<RdfProjection>("add_node", iri, typeIri);
+
+export const renameNode = (oldId: string, newIri: string) =>
+  call<RdfProjection>("rename_node", oldId, newIri);
+
+export const deleteNode = (nodeId: string) =>
+  call<RdfProjection>("delete_node", nodeId);
+
+export const addType = (nodeId: string, typeIri: string) =>
+  call<RdfProjection>("add_type", nodeId, typeIri);
+
+export const deleteType = (nodeId: string, typeIri: string) =>
+  call<RdfProjection>("delete_type", nodeId, typeIri);
+
+export const addEdge = (sourceId: string, predicateIri: string, targetId: string) =>
+  call<RdfProjection>("add_edge", sourceId, predicateIri, targetId);
+
+export const deleteEdge = (sourceId: string, predicateIri: string, targetId: string) =>
+  call<RdfProjection>("delete_edge", sourceId, predicateIri, targetId);
+
+export const addProperty = (
+  nodeId: string,
+  predicateIri: string,
+  value: string,
+  datatype: string | null,
+  language: string | null,
+) => call<RdfProjection>("add_property", nodeId, predicateIri, value, datatype, language);
+
+export const deleteProperty = (
+  nodeId: string,
+  predicateIri: string,
+  value: string,
+  datatype: string | null,
+  language: string | null,
+) =>
+  call<RdfProjection>(
+    "delete_property",
+    nodeId,
+    predicateIri,
+    value,
+    datatype,
+    language,
+  );

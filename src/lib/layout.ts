@@ -1,12 +1,17 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import type { RdfProjection } from "../model/rdfGraphModel";
+import type { Position } from "../state/graphStore";
 import type { ResourceNodeData } from "../components/ResourceNode";
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 120;
 
-export function layoutProjection(projection: RdfProjection): {
+export function layoutProjection(
+  projection: RdfProjection,
+  overridePositions: Record<string, Position> = {},
+  selectedNodeId: string | null = null,
+): {
   nodes: Node<ResourceNodeData>[];
   edges: Edge[];
 } {
@@ -24,11 +29,14 @@ export function layoutProjection(projection: RdfProjection): {
   dagre.layout(graph);
 
   const nodes: Node<ResourceNodeData>[] = projection.nodes.map((node) => {
+    const override = overridePositions[node.id];
     const { x, y } = graph.node(node.id);
+    const position = override ?? { x: x - NODE_WIDTH / 2, y: y - NODE_HEIGHT / 2 };
     return {
       id: node.id,
       type: "resource",
-      position: { x: x - NODE_WIDTH / 2, y: y - NODE_HEIGHT / 2 },
+      position,
+      selected: node.id === selectedNodeId,
       data: {
         iri: node.id,
         label: node.label,
@@ -40,9 +48,10 @@ export function layoutProjection(projection: RdfProjection): {
 
   const edges: Edge[] = projection.edges.map((edge) => ({
     id: edge.id,
+    type: "resourcePredicate",
     source: edge.source,
     target: edge.target,
-    label: edge.predicate,
+    data: { predicate: edge.predicate, predicateIri: edge.predicateIri },
   }));
 
   return { nodes, edges };

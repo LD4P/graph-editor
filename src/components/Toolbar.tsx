@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import type { RdfProjection } from "../model/rdfGraphModel";
-import { loadRdf } from "../lib/pyBridge";
+import { addNode, loadRdf } from "../lib/pyBridge";
+import { useGraphStore } from "../state/graphStore";
+import { useDialogStore } from "../state/dialogStore";
 
 const SAMPLE_TURTLE = `@prefix ex: <http://example.org/> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -20,11 +21,12 @@ const FORMATS = [
   { value: "nt", label: "N-Triples (.nt)" },
 ];
 
-export default function Toolbar({
-  onLoaded,
-}: {
-  onLoaded: (projection: RdfProjection) => void;
-}) {
+export default function Toolbar() {
+  const setProjection = useGraphStore((state) => state.setProjection);
+  const resetPositions = useGraphStore((state) => state.resetPositions);
+  const selectNode = useGraphStore((state) => state.selectNode);
+  const openDialog = useDialogStore((state) => state.openDialog);
+
   const [text, setText] = useState(SAMPLE_TURTLE);
   const [format, setFormat] = useState("turtle");
   const [url, setUrl] = useState("");
@@ -37,7 +39,9 @@ export default function Toolbar({
     setError(null);
     try {
       setText(rdfText);
-      onLoaded(await loadRdf(rdfText, format));
+      resetPositions();
+      selectNode(null);
+      setProjection(await loadRdf(rdfText, format));
     } catch (err) {
       setError(String(err));
     } finally {
@@ -63,7 +67,9 @@ export default function Toolbar({
       }
       const rdfText = await response.text();
       setText(rdfText);
-      onLoaded(await loadRdf(rdfText, format));
+      resetPositions();
+      selectNode(null);
+      setProjection(await loadRdf(rdfText, format));
     } catch (err) {
       setError(
         `Could not fetch "${url}": ${String(err)}. If this is a CORS error, the server hosting that RDF document needs to allow cross-origin requests.`,
@@ -71,6 +77,20 @@ export default function Toolbar({
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleAddResource() {
+    openDialog({
+      title: "Add resource",
+      fields: [
+        { name: "iri", label: "Resource IRI", placeholder: "http://example.org/newThing" },
+        { name: "typeIri", label: "Type IRI", placeholder: "http://example.org/Thing" },
+      ],
+      onSubmit: async (values) => {
+        if (!values.iri || !values.typeIri) return;
+        setProjection(await addNode(values.iri, values.typeIri));
+      },
+    });
   }
 
   return (
@@ -115,6 +135,10 @@ export default function Toolbar({
         />
         <button onClick={handleFetchUrl} disabled={loading}>
           Load URL
+        </button>
+
+        <button onClick={handleAddResource} style={{ marginLeft: "auto" }}>
+          Add resource
         </button>
       </div>
 

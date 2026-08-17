@@ -1,4 +1,4 @@
-import type { RdfProjection } from "../model/rdfGraphModel";
+import type { RdfProjection, ShaclValidationResult } from "../model/rdfGraphModel";
 
 const PYSCRIPT_CORE_URL = "https://pyscript.net/releases/2026.7.3/core.js";
 
@@ -44,6 +44,9 @@ export const currentProjection = () =>
 export const serializeRdf = (format: string) => call<string>("serialize_rdf", format);
 
 export const listPredicates = () => call<string[]>("list_predicates");
+
+export const validateShacl = (shapesText: string, shapesFormat: string) =>
+  call<ShaclValidationResult>("validate_shacl", shapesText, shapesFormat);
 
 export const addNode = (iri: string, typeIri: string) =>
   call<RdfProjection>("add_node", iri, typeIri);

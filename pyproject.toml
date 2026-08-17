@@ -5,6 +5,7 @@ description = "Browser-only RDF graph editor: PyScript/rdflib for RDF logic, Rea
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "pyshacl>=0.40.1",
     "rdflib>=7.6.0",
 ]
 

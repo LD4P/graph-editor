@@ -1,15 +1,18 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Background,
   Controls,
   ReactFlow,
+  type Edge,
+  type Node,
   type NodeMouseHandler,
   type OnConnect,
   type OnNodesChange,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { layoutProjection } from "../lib/layout";
-import ResourceNode from "./ResourceNode";
+import ResourceNode, { type ResourceNodeData } from "./ResourceNode";
 import ResourcePredicateEdge from "./ResourcePredicateEdge";
 import { useGraphStore } from "../state/graphStore";
 import { useDialogStore } from "../state/dialogStore";
@@ -31,6 +34,14 @@ export default function GraphCanvas() {
     () => layoutProjection(projection, positions, selectedNodeId),
     [projection, positions, selectedNodeId],
   );
+
+  const instanceRef = useRef<ReactFlowInstance<Node<ResourceNodeData>, Edge> | null>(null);
+
+  useEffect(() => {
+    if (selectedNodeId && instanceRef.current) {
+      instanceRef.current.fitView({ nodes: [{ id: selectedNodeId }], duration: 300 });
+    }
+  }, [selectedNodeId, nodes]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
@@ -84,6 +95,7 @@ export default function GraphCanvas() {
       onNodeClick={onNodeClick}
       onPaneClick={onPaneClick}
       onConnect={onConnect}
+      onInit={(instance) => (instanceRef.current = instance)}
       fitView
     >
       <Background />

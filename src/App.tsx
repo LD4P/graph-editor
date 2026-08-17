@@ -1,6 +1,7 @@
 import GraphCanvas from "./components/GraphCanvas";
 import Toolbar from "./components/Toolbar";
 import Inspector from "./components/Inspector";
+import ValidationPanel from "./components/ValidationPanel";
 import Dialog from "./components/Dialog";
 
 export default function App() {
@@ -12,6 +13,7 @@ export default function App() {
           <GraphCanvas />
         </div>
         <Inspector />
+        <ValidationPanel />
       </div>
       <Dialog />
     </div>

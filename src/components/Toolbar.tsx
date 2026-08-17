@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
 import { addNode, loadRdf, serializeRdf } from "../lib/pyBridge";
+import { FORMATS, FILE_EXTENSIONS } from "../lib/rdfFormats";
 import { useGraphStore } from "../state/graphStore";
 import { useDialogStore } from "../state/dialogStore";
+import { usePanelStore } from "../state/panelStore";
 
 const SAMPLE_TURTLE = `@prefix ex: <http://example.org/> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -14,25 +16,12 @@ ex:bob a ex:Person ;
     ex:name "Bob" .
 `;
 
-const FORMATS = [
-  { value: "turtle", label: "Turtle (.ttl)" },
-  { value: "xml", label: "RDF/XML (.rdf, .xml)" },
-  { value: "json-ld", label: "JSON-LD (.jsonld, .json)" },
-  { value: "nt", label: "N-Triples (.nt)" },
-];
-
-const FILE_EXTENSIONS: Record<string, string> = {
-  turtle: "ttl",
-  xml: "rdf",
-  "json-ld": "jsonld",
-  nt: "nt",
-};
-
 export default function Toolbar() {
   const setProjection = useGraphStore((state) => state.setProjection);
   const resetPositions = useGraphStore((state) => state.resetPositions);
   const selectNode = useGraphStore((state) => state.selectNode);
   const openDialog = useDialogStore((state) => state.openDialog);
+  const toggleValidationPanel = usePanelStore((state) => state.toggleValidationPanel);
 
   const [text, setText] = useState(SAMPLE_TURTLE);
   const [format, setFormat] = useState("turtle");
@@ -176,6 +165,7 @@ export default function Toolbar() {
         <button onClick={handleAddResource} style={{ marginLeft: "auto" }}>
           Add resource
         </button>
+        <button onClick={toggleValidationPanel}>Validate (SHACL)</button>
       </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>

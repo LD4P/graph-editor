@@ -30,3 +30,16 @@ export interface RdfProjection {
   nodes: RdfNode[];
   edges: RdfEdge[];
 }
+
+export interface ShaclViolation {
+  focusNode: string | null;
+  message: string | null;
+  severity: string | null;
+  path: string | null;
+}
+
+export interface ShaclValidationResult {
+  conforms: boolean;
+  resultsText: string;
+  violations: ShaclViolation[];
+}

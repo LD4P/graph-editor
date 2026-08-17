@@ -13,6 +13,7 @@ from rdf_service import (
     ping,
     rename_node,
     serialize_rdf,
+    validate_shacl,
 )
 
 ALICE = "http://example.org/alice"
@@ -168,6 +169,49 @@ def test_serialize_rdf_round_trips_through_a_different_format():
 
     reloaded = load_rdf(nt_text, format="nt")
     assert {n["id"] for n in reloaded["nodes"]} == {ALICE, BOB}
+
+
+SHAPES = """
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix ex: <http://example.org/> .
+
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [
+        sh:path ex:name ;
+        sh:minCount 1 ;
+        sh:message "A person must have a name." ;
+    ] .
+"""
+
+
+def test_validate_shacl_reports_no_violations_when_conformant():
+    load_rdf(
+        f"""
+        @prefix ex: <http://example.org/> .
+        ex:alice a ex:Person ;
+            ex:name "Alice" .
+        """
+    )
+    result = validate_shacl(SHAPES)
+    assert result["conforms"] is True
+    assert result["violations"] == []
+
+
+def test_validate_shacl_reports_violation_with_focus_node_and_message():
+    load_rdf(
+        f"""
+        @prefix ex: <http://example.org/> .
+        ex:bob a ex:Person .
+        """
+    )
+    result = validate_shacl(SHAPES)
+    assert result["conforms"] is False
+    (violation,) = result["violations"]
+    assert violation["focusNode"] == BOB
+    assert violation["message"] == "A person must have a name."
+    assert violation["severity"] == "Violation"
 
 
 def test_list_predicates_returns_unique_full_iris():

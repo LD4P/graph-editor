@@ -5,6 +5,9 @@ except ImportError:
 
 import rdflib
 from rdflib import RDF, RDFS
+from pyshacl import validate as _shacl_validate
+
+SH = rdflib.Namespace("http://www.w3.org/ns/shacl#")
 
 _graph = rdflib.Graph()
 
@@ -108,6 +111,48 @@ def list_predicates():
     return sorted({str(p) for p in _graph.predicates()})
 
 
+def _shacl_local_name(term):
+    if term is None:
+        return None
+    text = str(term)
+    return text.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
+
+
+def validate_shacl(shapes_text, shapes_format="turtle"):
+    shapes_graph = rdflib.Graph()
+    shapes_graph.parse(data=shapes_text, format=shapes_format)
+
+    conforms, results_graph, results_text = _shacl_validate(
+        _graph, shacl_graph=shapes_graph
+    )
+
+    violations = []
+    for result in results_graph.subjects(RDF.type, SH.ValidationResult):
+        focus_node = results_graph.value(result, SH.focusNode)
+        path = results_graph.value(result, SH.resultPath)
+        violations.append(
+            {
+                "focusNode": _term_id(focus_node) if focus_node is not None else None,
+                "message": next(
+                    (str(m) for m in results_graph.objects(result, SH.resultMessage)),
+                    None,
+                ),
+                "severity": _shacl_local_name(
+                    results_graph.value(result, SH.resultSeverity)
+                ),
+                "path": _compact(_graph, path)
+                if isinstance(path, rdflib.URIRef)
+                else None,
+            }
+        )
+
+    return {
+        "conforms": bool(conforms),
+        "resultsText": str(results_text),
+        "violations": violations,
+    }
+
+
 def add_node(iri, type_iri):
     _graph.add((rdflib.URIRef(iri), RDF.type, rdflib.URIRef(type_iri)))
     return _project(_graph)
@@ -190,6 +235,7 @@ if sync is not None:
     sync.current_projection = current_projection
     sync.serialize_rdf = serialize_rdf
     sync.list_predicates = list_predicates
+    sync.validate_shacl = validate_shacl
     sync.add_node = add_node
     sync.rename_node = rename_node
     sync.delete_node = delete_node

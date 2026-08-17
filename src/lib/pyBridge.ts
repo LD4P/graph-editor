@@ -1,3 +1,5 @@
+import type { RdfProjection } from "../model/rdfGraphModel";
+
 const PYSCRIPT_CORE_URL = "https://pyscript.net/releases/2026.7.3/core.js";
 
 interface PyWorkerHandle {
@@ -29,4 +31,17 @@ function getWorker(): Promise<PyWorkerHandle> {
 export async function ping(): Promise<string> {
   const worker = await getWorker();
   return (await worker.sync.ping()) as string;
+}
+
+export async function loadRdf(
+  text: string,
+  format: string,
+): Promise<RdfProjection> {
+  const worker = await getWorker();
+  return (await worker.sync.load_rdf(text, format)) as RdfProjection;
+}
+
+export async function currentProjection(): Promise<RdfProjection> {
+  const worker = await getWorker();
+  return (await worker.sync.current_projection()) as RdfProjection;
 }

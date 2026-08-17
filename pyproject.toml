@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Browser-only RDF graph editor: PyScript/rdflib for RDF logic, React Flow for the canvas."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "rdflib>=7.6.0",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["public/py"]

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { RdfProjection } from "../model/rdfGraphModel";
 import { loadRdf } from "../lib/pyBridge";
 
@@ -13,22 +13,61 @@ ex:bob a ex:Person ;
     ex:name "Bob" .
 `;
 
+const FORMATS = [
+  { value: "turtle", label: "Turtle (.ttl)" },
+  { value: "xml", label: "RDF/XML (.rdf, .xml)" },
+  { value: "json-ld", label: "JSON-LD (.jsonld, .json)" },
+  { value: "nt", label: "N-Triples (.nt)" },
+];
+
 export default function Toolbar({
   onLoaded,
 }: {
   onLoaded: (projection: RdfProjection) => void;
 }) {
   const [text, setText] = useState(SAMPLE_TURTLE);
+  const [format, setFormat] = useState("turtle");
+  const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  async function handleLoad() {
+  async function loadText(rdfText: string) {
     setLoading(true);
     setError(null);
     try {
-      onLoaded(await loadRdf(text, "turtle"));
+      setText(rdfText);
+      onLoaded(await loadRdf(rdfText, format));
     } catch (err) {
       setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    await loadText(await file.text());
+  }
+
+  async function handleFetchUrl() {
+    if (!url.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`${response.status} ${response.statusText}`);
+      }
+      const rdfText = await response.text();
+      setText(rdfText);
+      onLoaded(await loadRdf(rdfText, format));
+    } catch (err) {
+      setError(
+        `Could not fetch "${url}": ${String(err)}. If this is a CORS error, the server hosting that RDF document needs to allow cross-origin requests.`,
+      );
     } finally {
       setLoading(false);
     }
@@ -44,6 +83,41 @@ export default function Toolbar({
         borderBottom: "1px solid #ddd",
       }}
     >
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <label>
+          Format:{" "}
+          <select value={format} onChange={(event) => setFormat(event.target.value)}>
+            {FORMATS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button onClick={() => fileInputRef.current?.click()} disabled={loading}>
+          Load file...
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".ttl,.turtle,.rdf,.xml,.jsonld,.json,.nt"
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+        />
+
+        <input
+          type="url"
+          placeholder="https://example.org/data.ttl"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          style={{ width: 280 }}
+        />
+        <button onClick={handleFetchUrl} disabled={loading}>
+          Load URL
+        </button>
+      </div>
+
       <textarea
         value={text}
         onChange={(event) => setText(event.target.value)}
@@ -51,8 +125,8 @@ export default function Toolbar({
         style={{ fontFamily: "monospace", fontSize: 12 }}
       />
       <div>
-        <button onClick={handleLoad} disabled={loading}>
-          {loading ? "loading..." : "Load Turtle"}
+        <button onClick={() => loadText(text)} disabled={loading}>
+          {loading ? "loading..." : "Load"}
         </button>
         {error && <span style={{ marginLeft: "1rem", color: "crimson" }}>{error}</span>}
       </div>

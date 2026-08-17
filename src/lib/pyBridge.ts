@@ -25,9 +25,9 @@ function getWorker(): Promise<PyWorkerHandle> {
       const core = (await import(/* @vite-ignore */ PYSCRIPT_CORE_URL)) as {
         PyWorker: PyWorkerFactory;
       };
-      return core.PyWorker("/py/rdf_service.py", {
+      return core.PyWorker(`${import.meta.env.BASE_URL}py/rdf_service.py`, {
         type: "pyodide",
-        config: "/py/pyscript.toml",
+        config: `${import.meta.env.BASE_URL}py/pyscript.toml`,
       });
     })();
   }

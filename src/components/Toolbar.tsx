@@ -22,6 +22,7 @@ export default function Toolbar() {
   const selectNode = useGraphStore((state) => state.selectNode);
   const openDialog = useDialogStore((state) => state.openDialog);
   const toggleValidationPanel = usePanelStore((state) => state.toggleValidationPanel);
+  const toggleNamespacePanel = usePanelStore((state) => state.toggleNamespacePanel);
 
   const [text, setText] = useState(SAMPLE_TURTLE);
   const [format, setFormat] = useState("turtle");
@@ -166,6 +167,7 @@ export default function Toolbar() {
           Add resource
         </button>
         <button onClick={toggleValidationPanel}>Validate (SHACL)</button>
+        <button onClick={toggleNamespacePanel}>Namespaces</button>
       </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>

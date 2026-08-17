@@ -43,3 +43,13 @@ export interface ShaclValidationResult {
   resultsText: string;
   violations: ShaclViolation[];
 }
+
+export interface RdfNamespace {
+  prefix: string;
+  uri: string;
+}
+
+export interface SetNamespaceResult {
+  projection: RdfProjection;
+  namespaces: RdfNamespace[];
+}

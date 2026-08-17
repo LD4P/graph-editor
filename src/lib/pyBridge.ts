@@ -1,4 +1,9 @@
-import type { RdfProjection, ShaclValidationResult } from "../model/rdfGraphModel";
+import type {
+  RdfNamespace,
+  RdfProjection,
+  SetNamespaceResult,
+  ShaclValidationResult,
+} from "../model/rdfGraphModel";
 
 const PYSCRIPT_CORE_URL = "https://pyscript.net/releases/2026.7.3/core.js";
 
@@ -47,6 +52,11 @@ export const listPredicates = () => call<string[]>("list_predicates");
 
 export const validateShacl = (shapesText: string, shapesFormat: string) =>
   call<ShaclValidationResult>("validate_shacl", shapesText, shapesFormat);
+
+export const listNamespaces = () => call<RdfNamespace[]>("list_namespaces");
+
+export const setNamespace = (prefix: string, uri: string) =>
+  call<SetNamespaceResult>("set_namespace", prefix, uri);
 
 export const addNode = (iri: string, typeIri: string) =>
   call<RdfProjection>("add_node", iri, typeIri);

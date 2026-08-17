@@ -111,6 +111,19 @@ def list_predicates():
     return sorted({str(p) for p in _graph.predicates()})
 
 
+def list_namespaces():
+    return sorted(
+        ({"prefix": prefix, "uri": str(uri)} for prefix, uri in _graph.namespaces()),
+        key=lambda entry: entry["prefix"],
+    )
+
+
+def set_namespace(prefix, uri):
+    _graph.bind(prefix, rdflib.Namespace(uri), override=True, replace=True)
+    _graph.namespace_manager.reset()
+    return {"projection": _project(_graph), "namespaces": list_namespaces()}
+
+
 def _shacl_local_name(term):
     if term is None:
         return None
@@ -235,6 +248,8 @@ if sync is not None:
     sync.current_projection = current_projection
     sync.serialize_rdf = serialize_rdf
     sync.list_predicates = list_predicates
+    sync.list_namespaces = list_namespaces
+    sync.set_namespace = set_namespace
     sync.validate_shacl = validate_shacl
     sync.add_node = add_node
     sync.rename_node = rename_node

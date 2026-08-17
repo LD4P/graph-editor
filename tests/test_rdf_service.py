@@ -8,11 +8,13 @@ from rdf_service import (
     delete_node,
     delete_property,
     delete_type,
+    list_namespaces,
     list_predicates,
     load_rdf,
     ping,
     rename_node,
     serialize_rdf,
+    set_namespace,
     validate_shacl,
 )
 
@@ -212,6 +214,26 @@ def test_validate_shacl_reports_violation_with_focus_node_and_message():
     assert violation["focusNode"] == BOB
     assert violation["message"] == "A person must have a name."
     assert violation["severity"] == "Violation"
+
+
+def test_list_namespaces_includes_bound_prefix():
+    load_rdf(
+        """
+        @prefix ex: <http://example.org/> .
+        ex:alice ex:knows ex:bob .
+        """
+    )
+    namespaces = {entry["prefix"]: entry["uri"] for entry in list_namespaces()}
+    assert namespaces["ex"] == "http://example.org/"
+
+
+def test_set_namespace_changes_compaction_of_new_terms():
+    load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
+    result = set_namespace("ex", "http://example.org/")
+    namespaces = {entry["prefix"]: entry["uri"] for entry in result["namespaces"]}
+    assert namespaces["ex"] == "http://example.org/"
+
+    assert result["projection"]["edges"][0]["predicate"] == "ex:knows"
 
 
 def test_list_predicates_returns_unique_full_iris():

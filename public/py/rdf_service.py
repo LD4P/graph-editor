@@ -154,10 +154,23 @@ def list_predicates():
 
 
 def list_namespaces():
-    return sorted(
-        ({"prefix": prefix, "uri": str(uri)} for prefix, uri in _graph.namespaces()),
-        key=lambda entry: entry["prefix"],
-    )
+     return [
+         {"prefix": "bf", "uri": "http://id.loc.gov/ontologies/bibframe/"},
+         {"prefix": "bflc", "uri": "http://id.loc.gov/ontologies/bflc/"},
+         {"prefix": "dc", "uri": str(rdflib.DC) },
+         {"prefix": "dcterms", "uri": str(rdflib.DCTERMS)},
+         {"prefix": "owl", "uri": str(rdflib.OWL)},
+         {"prefix": "pmo", "uri": "http://performedmusicontology.org/ontology/"},
+         {"prefix": "prov", "uri": str(rdflib.PROV)},
+         {"prefix": "rdf", "uri": str(rdflib.RDF)},
+         {"prefix": "rdfs", "uri": str(rdflib.RDFS)},
+         {"prefix": "schema", "uri": "https://schema.org/"},
+         {"prefix": "sh", "uri": str(rdflib.SH)},
+         {"prefix": "sinopia":, "uri": "http://sinopia.io/vocabulary/"},
+         {"prefix": "skos", "uri": str(rdflib.SKOS)},
+         {"prefix": "xsd", "uri": str(rdflib.XSD)}
+     ]
+    
 
 
 def set_namespace(prefix, uri):

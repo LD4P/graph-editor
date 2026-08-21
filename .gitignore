@@ -12,3 +12,6 @@ wheels/
 # Node
 node_modules/
 *.tsbuildinfo
+
+# Editors
+*swp

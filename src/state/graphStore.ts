@@ -22,7 +22,7 @@ interface GraphState {
 }
 
 export const useGraphStore = create<GraphState>((set, get) => ({
-  projection: { nodes: [], edges: [] },
+  projection: { nodes: [], edges: [], groups: [] },
   positions: {},
   selectedNodeId: null,
   canUndo: false,

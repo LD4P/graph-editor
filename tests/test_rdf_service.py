@@ -93,6 +93,42 @@ def test_load_rdf_assigns_stable_ids_to_blank_nodes():
     assert blank_nodes[0]["properties"][0]["value"] == "Palo Alto"
 
 
+def test_cbd_groups_a_uri_subject_with_its_nested_blank_node():
+    projection = load_rdf(
+        """
+        @prefix ex: <http://example.org/> .
+        ex:alice ex:address [ ex:city "Palo Alto" ] .
+        """
+    )
+    blank_node_id = next(n["id"] for n in projection["nodes"] if n["id"].startswith("_:"))
+    (group,) = projection["groups"]
+    assert group["root"] == ALICE
+    assert group["members"] == sorted([ALICE, blank_node_id])
+
+
+def test_cbd_groups_a_uri_subject_with_a_directly_related_resource():
+    projection = load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
+    (group,) = projection["groups"]
+    assert group["root"] == ALICE
+    assert group["members"] == sorted([ALICE, BOB])
+
+
+def test_cbd_groups_omit_subjects_with_no_related_resources():
+    projection = load_rdf(f'<{ALICE}> <{NAME}> "Alice" .', format="nt")
+    assert projection["groups"] == []
+
+
+def test_cbd_groups_ignore_rdf_type_as_a_grouping_relation():
+    projection = load_rdf(
+        f"""
+        @prefix ex: <http://example.org/> .
+        <{ALICE}> a <{PERSON}> ;
+            <{NAME}> "Alice" .
+        """
+    )
+    assert projection["groups"] == []
+
+
 def test_current_projection_reflects_last_loaded_graph():
     load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
     assert current_projection()["edges"]

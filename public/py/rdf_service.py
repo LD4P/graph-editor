@@ -11,7 +11,24 @@ SH = rdflib.Namespace("http://www.w3.org/ns/shacl#")
 
 HISTORY_LIMIT = 50
 
-_graph = rdflib.Graph()
+# LD4P/Sinopia vocabularies rdflib doesn't bind by default, kept available for
+# compaction/autocomplete even before a loaded graph uses them.
+_EXTRA_NAMESPACES = {
+    "bf": "http://id.loc.gov/ontologies/bibframe/",
+    "bflc": "http://id.loc.gov/ontologies/bflc/",
+    "pmo": "http://performedmusicontology.org/ontology/",
+    "sinopia": "http://sinopia.io/vocabulary/",
+}
+
+
+def _new_graph():
+    graph = rdflib.Graph()
+    for prefix, uri in _EXTRA_NAMESPACES.items():
+        graph.bind(prefix, rdflib.Namespace(uri))
+    return graph
+
+
+_graph = _new_graph()
 _history = []
 _future = []
 
@@ -34,7 +51,7 @@ def undo():
     _future.append(_graph.serialize(format="turtle"))
     if len(_future) > HISTORY_LIMIT:
         _future.pop(0)
-    graph = rdflib.Graph()
+    graph = _new_graph()
     graph.parse(data=_history.pop(), format="turtle")
     _graph = graph
     return _project(_graph)
@@ -47,7 +64,7 @@ def redo():
     _history.append(_graph.serialize(format="turtle"))
     if len(_history) > HISTORY_LIMIT:
         _history.pop(0)
-    graph = rdflib.Graph()
+    graph = _new_graph()
     graph.parse(data=_future.pop(), format="turtle")
     _graph = graph
     return _project(_graph)
@@ -83,6 +100,30 @@ def _label_for(graph, subject):
     if label is not None:
         return str(label)
     return _compact(graph, subject)
+
+
+def _cbd_groups(graph):
+    """Group nodes by the Concise Bounded Description of each URI subject.
+
+    A CBD follows blank-node objects transitively, so this naturally clusters
+    a resource with its nested blank-node structure (e.g. BIBFRAME-style
+    value nodes) for the UI to draw as a bounding box.
+    """
+    groups = []
+    for subject in sorted(set(graph.subjects()), key=str):
+        if not isinstance(subject, rdflib.URIRef):
+            continue
+        members = set()
+        for triple_s, triple_p, triple_o in graph.cbd(subject):
+            if triple_p == RDF.type:
+                continue
+            if isinstance(triple_s, (rdflib.URIRef, rdflib.BNode)):
+                members.add(_term_id(triple_s))
+            if isinstance(triple_o, (rdflib.URIRef, rdflib.BNode)):
+                members.add(_term_id(triple_o))
+        if len(members) > 1:
+            groups.append({"root": _term_id(subject), "members": sorted(members)})
+    return groups
 
 
 def _project(graph):
@@ -129,13 +170,13 @@ def _project(graph):
                 }
             )
 
-    return {"nodes": list(nodes.values()), "edges": edges}
+    return {"nodes": list(nodes.values()), "edges": edges, "groups": _cbd_groups(graph)}
 
 
 def load_rdf(text, format="turtle"):
     global _graph
     _snapshot()
-    graph = rdflib.Graph()
+    graph = _new_graph()
     graph.parse(data=text, format=format)
     _graph = graph
     return _project(_graph)
@@ -154,23 +195,10 @@ def list_predicates():
 
 
 def list_namespaces():
-     return [
-         {"prefix": "bf", "uri": "http://id.loc.gov/ontologies/bibframe/"},
-         {"prefix": "bflc", "uri": "http://id.loc.gov/ontologies/bflc/"},
-         {"prefix": "dc", "uri": str(rdflib.DC) },
-         {"prefix": "dcterms", "uri": str(rdflib.DCTERMS)},
-         {"prefix": "owl", "uri": str(rdflib.OWL)},
-         {"prefix": "pmo", "uri": "http://performedmusicontology.org/ontology/"},
-         {"prefix": "prov", "uri": str(rdflib.PROV)},
-         {"prefix": "rdf", "uri": str(rdflib.RDF)},
-         {"prefix": "rdfs", "uri": str(rdflib.RDFS)},
-         {"prefix": "schema", "uri": "https://schema.org/"},
-         {"prefix": "sh", "uri": str(rdflib.SH)},
-         {"prefix": "sinopia":, "uri": "http://sinopia.io/vocabulary/"},
-         {"prefix": "skos", "uri": str(rdflib.SKOS)},
-         {"prefix": "xsd", "uri": str(rdflib.XSD)}
-     ]
-    
+    return sorted(
+        ({"prefix": prefix, "uri": str(uri)} for prefix, uri in _graph.namespaces()),
+        key=lambda entry: entry["prefix"],
+    )
 
 
 def set_namespace(prefix, uri):

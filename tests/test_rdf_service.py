@@ -118,6 +118,19 @@ def test_cbd_groups_omit_subjects_with_no_related_resources():
     assert projection["groups"] == []
 
 
+def test_cbd_groups_merge_when_they_share_a_member():
+    projection = load_rdf(
+        f"""
+        <{ALICE}> <{KNOWS}> <{BOB}> .
+        <{BOB}> <{KNOWS}> <{ALICE}> .
+        """,
+        format="nt",
+    )
+    (group,) = projection["groups"]
+    assert group["root"] == ALICE
+    assert group["members"] == sorted([ALICE, BOB])
+
+
 def test_cbd_groups_ignore_rdf_type_as_a_grouping_relation():
     projection = load_rdf(
         f"""

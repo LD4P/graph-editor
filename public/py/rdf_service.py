@@ -108,8 +108,13 @@ def _cbd_groups(graph):
     A CBD follows blank-node objects transitively, so this naturally clusters
     a resource with its nested blank-node structure (e.g. BIBFRAME-style
     value nodes) for the UI to draw as a bounding box.
+
+    Two subjects' CBDs can share a member (e.g. reciprocal relationships, or
+    a blank node pointed to from more than one place); any that do are
+    merged into a single cluster so the resulting groups are pairwise
+    disjoint and can never overlap on screen.
     """
-    groups = []
+    raw_groups = []
     for subject in sorted(set(graph.subjects()), key=str):
         if not isinstance(subject, rdflib.URIRef):
             continue
@@ -122,8 +127,24 @@ def _cbd_groups(graph):
             if isinstance(triple_o, (rdflib.URIRef, rdflib.BNode)):
                 members.add(_term_id(triple_o))
         if len(members) > 1:
-            groups.append({"root": _term_id(subject), "members": sorted(members)})
-    return groups
+            raw_groups.append({"roots": {_term_id(subject)}, "members": members})
+
+    clusters = []
+    for group in raw_groups:
+        overlapping = [c for c in clusters if c["members"] & group["members"]]
+        for other in overlapping:
+            clusters.remove(other)
+        merged_roots = set(group["roots"])
+        merged_members = set(group["members"])
+        for other in overlapping:
+            merged_roots |= other["roots"]
+            merged_members |= other["members"]
+        clusters.append({"roots": merged_roots, "members": merged_members})
+
+    return [
+        {"root": min(cluster["roots"], key=str), "members": sorted(cluster["members"])}
+        for cluster in clusters
+    ]
 
 
 def _project(graph):

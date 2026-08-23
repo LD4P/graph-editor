@@ -14,12 +14,13 @@ import {
 import "@xyflow/react/dist/style.css";
 import { layoutProjection } from "../lib/layout";
 import ResourceNode, { type ResourceNodeData } from "./ResourceNode";
+import CbdGroupNode, { type CbdGroupNodeData } from "./CbdGroupNode";
 import ResourcePredicateEdge from "./ResourcePredicateEdge";
 import { useGraphStore } from "../state/graphStore";
 import { useDialogStore } from "../state/dialogStore";
 import { addEdge, listPredicates } from "../lib/pyBridge";
 
-const nodeTypes = { resource: ResourceNode };
+const nodeTypes = { resource: ResourceNode, cbdGroup: CbdGroupNode };
 const edgeTypes = { resourcePredicate: ResourcePredicateEdge };
 
 export default function GraphCanvas() {
@@ -36,7 +37,10 @@ export default function GraphCanvas() {
     [projection, positions, selectedNodeId],
   );
 
-  const instanceRef = useRef<ReactFlowInstance<Node<ResourceNodeData>, Edge> | null>(null);
+  const instanceRef = useRef<ReactFlowInstance<
+    Node<ResourceNodeData | CbdGroupNodeData>,
+    Edge
+  > | null>(null);
 
   useEffect(() => {
     if (selectedNodeId && instanceRef.current) {
@@ -56,7 +60,10 @@ export default function GraphCanvas() {
   );
 
   const onNodeClick: NodeMouseHandler = useCallback(
-    (_event, node) => selectNode(node.id),
+    (_event, node) => {
+      if (node.type === "cbdGroup") return;
+      selectNode(node.id);
+    },
     [selectNode],
   );
 

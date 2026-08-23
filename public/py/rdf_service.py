@@ -11,7 +11,24 @@ SH = rdflib.Namespace("http://www.w3.org/ns/shacl#")
 
 HISTORY_LIMIT = 50
 
-_graph = rdflib.Graph()
+# LD4P/Sinopia vocabularies rdflib doesn't bind by default, kept available for
+# compaction/autocomplete even before a loaded graph uses them.
+_EXTRA_NAMESPACES = {
+    "bf": "http://id.loc.gov/ontologies/bibframe/",
+    "bflc": "http://id.loc.gov/ontologies/bflc/",
+    "pmo": "http://performedmusicontology.org/ontology/",
+    "sinopia": "http://sinopia.io/vocabulary/",
+}
+
+
+def _new_graph():
+    graph = rdflib.Graph()
+    for prefix, uri in _EXTRA_NAMESPACES.items():
+        graph.bind(prefix, rdflib.Namespace(uri))
+    return graph
+
+
+_graph = _new_graph()
 _history = []
 _future = []
 
@@ -34,7 +51,7 @@ def undo():
     _future.append(_graph.serialize(format="turtle"))
     if len(_future) > HISTORY_LIMIT:
         _future.pop(0)
-    graph = rdflib.Graph()
+    graph = _new_graph()
     graph.parse(data=_history.pop(), format="turtle")
     _graph = graph
     return _project(_graph)
@@ -47,7 +64,7 @@ def redo():
     _history.append(_graph.serialize(format="turtle"))
     if len(_history) > HISTORY_LIMIT:
         _history.pop(0)
-    graph = rdflib.Graph()
+    graph = _new_graph()
     graph.parse(data=_future.pop(), format="turtle")
     _graph = graph
     return _project(_graph)
@@ -83,6 +100,71 @@ def _label_for(graph, subject):
     if label is not None:
         return str(label)
     return _compact(graph, subject)
+
+
+def _cbd_groups(graph):
+    """Give every typed, named resource a boundary around its full CBD.
+
+    Only subjects that carry an rdf:type triple are considered as roots —
+    every "real" resource in a Sinopia/BIBFRAME-style graph is typed. A
+    subject's boundary is itself plus every term across its CBD's triples,
+    with one heuristic: a URI object is folded into the boundary only if
+    it has NO rdf:type triple of its own in the graph. A typed URI is an
+    independently addressable resource and gets its own separate boundary
+    instead (e.g. `ex:alice ex:knows ex:bob`, both typed, render as two
+    boxes joined by the edge). An untyped URI is just a stub reference —
+    common for externally-described agents/subjects in real BIBFRAME data
+    — and folds in exactly like a blank node would, at any depth.
+
+    Two boundaries can still share a member if two typed subjects both
+    reference the same untyped resource or blank node; merge any that do
+    so no two boxes ever overlap on screen.
+    """
+    raw_groups = []
+    for subject in sorted(set(graph.subjects(predicate=RDF.type)), key=str):
+        if not isinstance(subject, rdflib.URIRef):
+            continue
+        members = {_term_id(subject)}
+        for triple_s, triple_p, triple_o in graph.cbd(subject):
+            if triple_p == RDF.type:
+                continue
+            if isinstance(triple_s, rdflib.BNode):
+                members.add(_term_id(triple_s))
+            if isinstance(triple_o, rdflib.BNode):
+                members.add(_term_id(triple_o))
+            elif isinstance(triple_o, rdflib.URIRef) and (
+                triple_o,
+                RDF.type,
+                None,
+            ) not in graph:
+                members.add(_term_id(triple_o))
+        raw_groups.append({"roots": {_term_id(subject)}, "members": members})
+
+    clusters = []
+    for group in raw_groups:
+        overlapping = [c for c in clusters if c["members"] & group["members"]]
+        for other in overlapping:
+            clusters.remove(other)
+        merged_roots = set(group["roots"])
+        merged_members = set(group["members"])
+        for other in overlapping:
+            merged_roots |= other["roots"]
+            merged_members |= other["members"]
+        clusters.append({"roots": merged_roots, "members": merged_members})
+
+    groups = []
+    for cluster in clusters:
+        root = min(cluster["roots"], key=str)
+        # The box label is the root's rdfs:label if it has one, otherwise
+        # its own full URI -- never a compacted/prefixed qname (rdflib
+        # auto-generates ns1:, ns2:, ... prefixes for unbound namespaces,
+        # which is not an identifier a user can act on).
+        root_label = graph.value(rdflib.URIRef(root), RDFS.label)
+        label = str(root_label) if root_label is not None else root
+        groups.append(
+            {"root": root, "label": label, "members": sorted(cluster["members"])}
+        )
+    return groups
 
 
 def _project(graph):
@@ -129,13 +211,13 @@ def _project(graph):
                 }
             )
 
-    return {"nodes": list(nodes.values()), "edges": edges}
+    return {"nodes": list(nodes.values()), "edges": edges, "groups": _cbd_groups(graph)}
 
 
 def load_rdf(text, format="turtle"):
     global _graph
     _snapshot()
-    graph = rdflib.Graph()
+    graph = _new_graph()
     graph.parse(data=text, format=format)
     _graph = graph
     return _project(_graph)
@@ -154,23 +236,10 @@ def list_predicates():
 
 
 def list_namespaces():
-     return [
-         {"prefix": "bf", "uri": "http://id.loc.gov/ontologies/bibframe/"},
-         {"prefix": "bflc", "uri": "http://id.loc.gov/ontologies/bflc/"},
-         {"prefix": "dc", "uri": str(rdflib.DC) },
-         {"prefix": "dcterms", "uri": str(rdflib.DCTERMS)},
-         {"prefix": "owl", "uri": str(rdflib.OWL)},
-         {"prefix": "pmo", "uri": "http://performedmusicontology.org/ontology/"},
-         {"prefix": "prov", "uri": str(rdflib.PROV)},
-         {"prefix": "rdf", "uri": str(rdflib.RDF)},
-         {"prefix": "rdfs", "uri": str(rdflib.RDFS)},
-         {"prefix": "schema", "uri": "https://schema.org/"},
-         {"prefix": "sh", "uri": str(rdflib.SH)},
-         {"prefix": "sinopia":, "uri": "http://sinopia.io/vocabulary/"},
-         {"prefix": "skos", "uri": str(rdflib.SKOS)},
-         {"prefix": "xsd", "uri": str(rdflib.XSD)}
-     ]
-    
+    return sorted(
+        ({"prefix": prefix, "uri": str(uri)} for prefix, uri in _graph.namespaces()),
+        key=lambda entry: entry["prefix"],
+    )
 
 
 def set_namespace(prefix, uri):

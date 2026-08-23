@@ -26,9 +26,16 @@ export interface RdfEdge {
   predicateIri: string;
 }
 
+export interface CbdGroup {
+  root: string;
+  label: string;
+  members: string[];
+}
+
 export interface RdfProjection {
   nodes: RdfNode[];
   edges: RdfEdge[];
+  groups: CbdGroup[];
 }
 
 export interface ShaclViolation {

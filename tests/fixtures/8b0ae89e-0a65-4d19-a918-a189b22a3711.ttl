@@ -1,0 +1,63 @@
+@prefix : <http://id.loc.gov/ontologies/bibframe/> .
+@prefix bflc: <http://id.loc.gov/ontologies/bflc/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://dev.bcld.info/instances/8b0ae89e-0a65-4d19-a918-a189b22a3711> a :Instance ;
+    :acquisitionSource [ a :AcquisitionSource ;
+            rdfs:label "DLC" ;
+            :acquisitionTerms "(digital file from original item)" ;
+            :identifiedBy [ a :StockNumber ;
+                    rdf:value "LC-DIG-ds-06041" ] ] ;
+    :adminMetadata [ a :AdminMetadata ;
+            :agent <http://id.loc.gov/vocabulary/organizations/bcld> ;
+            :date "2026-07-07T22:58:28.826591+00:00"^^xsd:dateTime ;
+            :derivedFrom <http://id.loc.gov/resources/instances/18186162> ;
+            :status <http://id.loc.gov/vocabulary/mstatus/c> ],
+        [ a :AdminMetadata ;
+            bflc:catalogerId "Unknown" ;
+            :date "2026-07-07" ;
+            :descriptionAuthentication <http://id.loc.gov/vocabulary/marcauthen/pcc> ;
+            :descriptionLanguage <http://id.loc.gov/vocabulary/languages/eng> ;
+            :descriptionLevel <http://id.loc.gov/ontologies/bibframe-2-6-0/> ] ;
+    :carrier <http://id.loc.gov/vocabulary/carriers/cr>,
+        <http://id.loc.gov/vocabulary/carriers/nb> ;
+    :dimensions "sheet 72 x 39 cm" ;
+    :extent [ a :Extent ;
+            rdfs:label "1 drawing" ;
+            :note [ a :Note,
+                        <http://id.loc.gov/vocabulary/mnotetype/physical> ;
+                    rdfs:label "blueprint" ] ] ;
+    :genreForm <http://id.loc.gov/vocabulary/graphicMaterials/tgm009250> ;
+    :hasItem <http://id.loc.gov/resources/items/18186162> ;
+    :identifiedBy [ a :Lccn ;
+            rdf:value "  2014647254" ] ;
+    :instanceOf <https://dev.bcld.info/works/768694da-3d38-44d5-adc3-70e1d4bf4a9a> ;
+    :issuance <http://id.loc.gov/vocabulary/issuance/mono> ;
+    :media <http://id.loc.gov/vocabulary/mediaTypes/c>,
+        <http://id.loc.gov/vocabulary/mediaTypes/n> ;
+    :note [ a :Note ;
+            rdfs:label "Drawing no. RA110" ],
+        [ a :Note ;
+            rdfs:label "Series: C - Revised - Head House." ],
+        [ a :Note ;
+            rdfs:label "Title devised, and date range determined, by Library staff." ] ;
+    :provisionActivity [ a :ProvisionActivity,
+                :Publication ;
+            bflc:simpleDate "[between 1903 and 1908]" ;
+            bflc:simplePlace "[Chicago]" ;
+            :date "1903~/1908~"^^<http://id.loc.gov/datatypes/edtf> ] ;
+    :publicationStatement "[Chicago]: [between 1903 and 1908]" ;
+    :title [ a :Title ;
+            :mainTitle "[Union Station, Washington, D.C.]" ;
+            :partName "[Details of mail boxes]" ],
+        [ a :Title ;
+            :mainTitle "[Union Station, Washington, D.C.]" ;
+            :partName "[Details of mail boxes]" ] ;
+    :usageAndAccessPolicy [ a :AccessPolicy ;
+            rdfs:label "Use digital images. Original drawings are extremely fragile." ],
+        [ a :UsePolicy ;
+            rdfs:label "No known restrictions on publication. For information see \"Architectural and engineering drawings used in the construction of Union Station in Washington, D.C.\"" ;
+            :electronicLocator <https://hdl.loc.gov/loc.pnp/res.803.burn> ] .
+

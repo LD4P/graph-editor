@@ -75,7 +75,6 @@ export function layoutProjection(
   }));
 
   const positionById = new Map(nodes.map((node) => [node.id, node.position]));
-  const labelById = new Map(projection.nodes.map((node) => [node.id, node.label]));
 
   const groupNodes: Node<CbdGroupNodeData>[] = [];
   for (const group of projection.groups) {
@@ -103,7 +102,7 @@ export function layoutProjection(
       draggable: false,
       selectable: false,
       zIndex: -1,
-      data: { label: labelById.get(group.root) ?? group.root },
+      data: { label: group.label },
     });
   }
 

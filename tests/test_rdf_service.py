@@ -1,3 +1,7 @@
+from pathlib import Path
+
+import rdflib
+
 from rdf_service import (
     add_edge,
     add_node,
@@ -27,6 +31,9 @@ BOB = "http://example.org/bob"
 KNOWS = "http://example.org/knows"
 NAME = "http://example.org/name"
 PERSON = "http://example.org/Person"
+TYPE = str(rdflib.RDF.type)
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def test_ping():
@@ -97,7 +104,8 @@ def test_cbd_groups_a_uri_subject_with_its_nested_blank_node():
     projection = load_rdf(
         """
         @prefix ex: <http://example.org/> .
-        ex:alice ex:address [ ex:city "Palo Alto" ] .
+        ex:alice a ex:Person ;
+            ex:address [ ex:city "Palo Alto" ] .
         """
     )
     blank_node_id = next(n["id"] for n in projection["nodes"] if n["id"].startswith("_:"))
@@ -106,40 +114,145 @@ def test_cbd_groups_a_uri_subject_with_its_nested_blank_node():
     assert group["members"] == sorted([ALICE, blank_node_id])
 
 
-def test_cbd_groups_a_uri_subject_with_a_directly_related_resource():
-    projection = load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
+def test_cbd_groups_label_is_the_rdfs_label_when_present_else_the_root_uri():
+    # The box label is what a user actually sees, so it must never be a
+    # compacted/prefixed qname (e.g. "ns1:...") -- rdfs:label if the root
+    # has one, otherwise the root's own full URI, and nothing else (not a
+    # concatenation of both).
+    projection = load_rdf(
+        """
+        @prefix ex: <http://example.org/> .
+        @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+        ex:alice a ex:Person ;
+            rdfs:label "Alice" .
+        """,
+    )
     (group,) = projection["groups"]
-    assert group["root"] == ALICE
-    assert group["members"] == sorted([ALICE, BOB])
+    assert group["label"] == "Alice"
+
+    projection = load_rdf(
+        f"""
+        <{ALICE}> <{TYPE}> <{PERSON}> .
+        """,
+        format="nt",
+    )
+    (group,) = projection["groups"]
+    assert group["label"] == ALICE
 
 
-def test_cbd_groups_omit_subjects_with_no_related_resources():
+def test_cbd_groups_only_consider_typed_subjects():
+    # An untyped subject isn't a "real" resource in a Sinopia/BIBFRAME-style
+    # graph, so it gets no boundary of its own.
     projection = load_rdf(f'<{ALICE}> <{NAME}> "Alice" .', format="nt")
     assert projection["groups"] == []
 
-
-def test_cbd_groups_merge_when_they_share_a_member():
     projection = load_rdf(
         f"""
-        <{ALICE}> <{KNOWS}> <{BOB}> .
-        <{BOB}> <{KNOWS}> <{ALICE}> .
+        <{ALICE}> <{TYPE}> <{PERSON}> .
+        <{ALICE}> <{NAME}> "Alice" .
         """,
         format="nt",
     )
     (group,) = projection["groups"]
     assert group["root"] == ALICE
+    assert group["members"] == [ALICE]
+
+
+def test_cbd_groups_keep_typed_resources_in_separate_boundaries():
+    # ex:alice's CBD names bob directly (ex:knows), but bob is independently
+    # typed -- an addressable resource in his own right -- so he gets his
+    # own boundary instead of folding into alice's.
+    projection = load_rdf(
+        f"""
+        <{ALICE}> <{TYPE}> <{PERSON}> .
+        <{ALICE}> <{KNOWS}> <{BOB}> .
+        <{BOB}> <{TYPE}> <{PERSON}> .
+        <{BOB}> <{NAME}> "Bob" .
+        """,
+        format="nt",
+    )
+    groups_by_root = {group["root"]: group["members"] for group in projection["groups"]}
+    assert groups_by_root == {ALICE: [ALICE], BOB: [BOB]}
+
+
+def test_cbd_groups_fold_in_an_untyped_uri_reference():
+    # A URI with no rdf:type triple of its own in this graph is just a stub
+    # reference (e.g. an externally-described BIBFRAME agent) and folds
+    # into the subject's boundary exactly like a blank node would, even
+    # when linked directly rather than through a blank node.
+    projection = load_rdf(
+        """
+        @prefix ex: <http://example.org/> .
+        ex:alice a ex:Person ;
+            ex:knows ex:bob .
+        """
+    )
+    (group,) = projection["groups"]
+    assert group["root"] == ALICE
     assert group["members"] == sorted([ALICE, BOB])
 
 
-def test_cbd_groups_ignore_rdf_type_as_a_grouping_relation():
+def test_cbd_groups_merge_when_two_subjects_share_a_blank_node():
     projection = load_rdf(
-        f"""
+        """
         @prefix ex: <http://example.org/> .
-        <{ALICE}> a <{PERSON}> ;
-            <{NAME}> "Alice" .
+        ex:alice a ex:Person ;
+            ex:sharedAddress _:home .
+        ex:carol a ex:Person ;
+            ex:sharedAddress _:home .
+        _:home ex:city "Palo Alto" .
         """
     )
-    assert projection["groups"] == []
+    blank_node_id = next(n["id"] for n in projection["nodes"] if n["id"].startswith("_:"))
+    (group,) = projection["groups"]
+    assert group["root"] == ALICE
+    assert group["members"] == sorted([ALICE, "http://example.org/carol", blank_node_id])
+
+
+def test_cbd_groups_fold_in_a_multi_level_blank_node_chain():
+    # Blank-node ownership isn't capped at one level: a chain of nested
+    # blank nodes several deep (as real BIBFRAME-style records produce)
+    # must all fold into the owning subject's boundary.
+    projection = load_rdf(
+        """
+        @prefix ex: <http://example.org/> .
+        ex:alice a ex:Person ;
+            ex:note [ ex:detail [ ex:comment [ ex:text "deeply nested" ] ] ] .
+        """
+    )
+    blank_node_ids = sorted(n["id"] for n in projection["nodes"] if n["id"].startswith("_:"))
+    assert len(blank_node_ids) == 3
+    (group,) = projection["groups"]
+    assert group["root"] == ALICE
+    assert group["members"] == sorted([ALICE, *blank_node_ids])
+
+
+def test_cbd_groups_bcld_bibframe_instance_has_a_single_boundary_at_its_own_uri():
+    # Real BIBFRAME/Sinopia-style data (fetched from
+    # https://dev.bcld.info/instances/8b0ae89e-0a65-4d19-a918-a189b22a3711.ttl):
+    # a single top-level Instance owns a deep tree of blank nodes (title,
+    # note, extent, provisionActivity, acquisitionSource, etc.) and links
+    # directly to several other URIs (a Work via :instanceOf, an Item, LC
+    # vocabulary/authority terms) that are never independently typed in
+    # this file. None of those become their own boundary -- there is
+    # exactly one CBD boundary in this graph, and it's labeled by the
+    # Instance's own URI, never a blank node.
+    text = (FIXTURES / "8b0ae89e-0a65-4d19-a918-a189b22a3711.ttl").read_text()
+    projection = load_rdf(text)
+
+    instance_uri = (
+        "https://dev.bcld.info/instances/8b0ae89e-0a65-4d19-a918-a189b22a3711"
+    )
+    (group,) = projection["groups"]
+    assert group["root"] == instance_uri
+    assert not group["root"].startswith("_:")
+    # The Instance itself has no rdfs:label in this file, so the label
+    # actually rendered in the UI must be the plain URI -- not a qname
+    # like "ns1:8b0ae89e-..." (what a user would see before this fix).
+    assert group["label"] == instance_uri
+
+    all_node_ids = {n["id"] for n in projection["nodes"]}
+    assert set(group["members"]) == all_node_ids
 
 
 def test_current_projection_reflects_last_loaded_graph():

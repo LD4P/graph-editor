@@ -103,31 +103,42 @@ def _label_for(graph, subject):
 
 
 def _cbd_groups(graph):
-    """Group nodes by the Concise Bounded Description of each URI subject.
+    """Give every typed, named resource a boundary around its full CBD.
 
-    A CBD follows blank-node objects transitively, so this naturally clusters
-    a resource with its nested blank-node structure (e.g. BIBFRAME-style
-    value nodes) for the UI to draw as a bounding box.
+    Only subjects that carry an rdf:type triple are considered as roots —
+    every "real" resource in a Sinopia/BIBFRAME-style graph is typed. A
+    subject's boundary is itself plus every term across its CBD's triples,
+    with one heuristic: a URI object is folded into the boundary only if
+    it has NO rdf:type triple of its own in the graph. A typed URI is an
+    independently addressable resource and gets its own separate boundary
+    instead (e.g. `ex:alice ex:knows ex:bob`, both typed, render as two
+    boxes joined by the edge). An untyped URI is just a stub reference —
+    common for externally-described agents/subjects in real BIBFRAME data
+    — and folds in exactly like a blank node would, at any depth.
 
-    Two subjects' CBDs can share a member (e.g. reciprocal relationships, or
-    a blank node pointed to from more than one place); any that do are
-    merged into a single cluster so the resulting groups are pairwise
-    disjoint and can never overlap on screen.
+    Two boundaries can still share a member if two typed subjects both
+    reference the same untyped resource or blank node; merge any that do
+    so no two boxes ever overlap on screen.
     """
     raw_groups = []
-    for subject in sorted(set(graph.subjects()), key=str):
+    for subject in sorted(set(graph.subjects(predicate=RDF.type)), key=str):
         if not isinstance(subject, rdflib.URIRef):
             continue
-        members = set()
+        members = {_term_id(subject)}
         for triple_s, triple_p, triple_o in graph.cbd(subject):
             if triple_p == RDF.type:
                 continue
-            if isinstance(triple_s, (rdflib.URIRef, rdflib.BNode)):
+            if isinstance(triple_s, rdflib.BNode):
                 members.add(_term_id(triple_s))
-            if isinstance(triple_o, (rdflib.URIRef, rdflib.BNode)):
+            if isinstance(triple_o, rdflib.BNode):
                 members.add(_term_id(triple_o))
-        if len(members) > 1:
-            raw_groups.append({"roots": {_term_id(subject)}, "members": members})
+            elif isinstance(triple_o, rdflib.URIRef) and (
+                triple_o,
+                RDF.type,
+                None,
+            ) not in graph:
+                members.add(_term_id(triple_o))
+        raw_groups.append({"roots": {_term_id(subject)}, "members": members})
 
     clusters = []
     for group in raw_groups:
@@ -141,10 +152,19 @@ def _cbd_groups(graph):
             merged_members |= other["members"]
         clusters.append({"roots": merged_roots, "members": merged_members})
 
-    return [
-        {"root": min(cluster["roots"], key=str), "members": sorted(cluster["members"])}
-        for cluster in clusters
-    ]
+    groups = []
+    for cluster in clusters:
+        root = min(cluster["roots"], key=str)
+        # The box label is the root's rdfs:label if it has one, otherwise
+        # its own full URI -- never a compacted/prefixed qname (rdflib
+        # auto-generates ns1:, ns2:, ... prefixes for unbound namespaces,
+        # which is not an identifier a user can act on).
+        root_label = graph.value(rdflib.URIRef(root), RDFS.label)
+        label = str(root_label) if root_label is not None else root
+        groups.append(
+            {"root": root, "label": label, "members": sorted(cluster["members"])}
+        )
+    return groups
 
 
 def _project(graph):

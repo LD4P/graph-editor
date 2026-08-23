@@ -28,6 +28,7 @@ export interface RdfEdge {
 
 export interface CbdGroup {
   root: string;
+  label: string;
   members: string[];
 }
 

@@ -299,6 +299,14 @@ def test_add_and_delete_type():
     assert projection["nodes"][0]["types"] == []
 
 
+def test_add_type_expands_a_bound_prefix_in_the_type_iri():
+    load_rdf(f'<{ALICE}> <{NAME}> "Alice" .', format="nt")
+    projection = add_type(ALICE, "rdfs:Resource")
+    assert [t["typeIri"] for t in projection["nodes"][0]["types"]] == [
+        str(rdflib.RDFS.Resource)
+    ]
+
+
 def test_add_and_delete_edge():
     load_rdf(f'<{ALICE}> <{NAME}> "Alice" .\n<{BOB}> <{NAME}> "Bob" .', format="nt")
     projection = add_edge(ALICE, KNOWS, BOB)
@@ -310,6 +318,12 @@ def test_add_and_delete_edge():
 
     projection = delete_edge(ALICE, KNOWS, BOB)
     assert projection["edges"] == []
+
+
+def test_add_edge_expands_a_bound_prefix_in_the_predicate_iri():
+    load_rdf(f'<{ALICE}> <{NAME}> "Alice" .\n<{BOB}> <{NAME}> "Bob" .', format="nt")
+    projection = add_edge(ALICE, "rdfs:seeAlso", BOB)
+    assert projection["edges"][0]["predicateIri"] == str(rdflib.RDFS.seeAlso)
 
 
 def test_add_and_delete_property():
@@ -337,6 +351,22 @@ def test_add_property_treats_an_unbound_looking_prefix_as_a_literal_iri():
     projection = add_property(ALICE, NAME, "Alice", None, None)
     alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
     assert alice["properties"][0]["predicateIri"] == NAME
+
+
+def test_add_property_expands_a_bound_prefix_in_the_datatype_iri():
+    load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
+    projection = add_property(ALICE, NAME, "2024-01-01", "xsd:date", None)
+    alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
+    assert alice["properties"][0]["datatype"] == str(rdflib.XSD.date)
+
+
+def test_update_property_expands_a_bound_prefix_in_the_new_datatype_iri():
+    load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
+    add_property(ALICE, NAME, "Alice", None, None)
+
+    projection = update_property(ALICE, NAME, "Alice", None, None, "42", "xsd:integer", None)
+    alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
+    assert alice["properties"][0]["datatype"] == str(rdflib.XSD.integer)
 
 
 def test_update_property_replaces_value_in_a_single_undoable_step():

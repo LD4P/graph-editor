@@ -333,7 +333,7 @@ def delete_node(node_id):
 
 def add_type(node_id, type_iri):
     _snapshot()
-    _graph.add((_term_from_id(node_id), RDF.type, rdflib.URIRef(type_iri)))
+    _graph.add((_term_from_id(node_id), RDF.type, _resolve_iri(type_iri)))
     return _project(_graph)
 
 
@@ -348,7 +348,7 @@ def add_edge(source_id, predicate_iri, target_id):
     _graph.add(
         (
             _term_from_id(source_id),
-            rdflib.URIRef(predicate_iri),
+            _resolve_iri(predicate_iri),
             _term_from_id(target_id),
         )
     )
@@ -371,7 +371,7 @@ def add_property(node_id, predicate_iri, value, datatype=None, language=None):
     _snapshot()
     literal = rdflib.Literal(
         value,
-        datatype=rdflib.URIRef(datatype) if datatype else None,
+        datatype=_resolve_iri(datatype) if datatype else None,
         lang=language or None,
     )
     _graph.add((_term_from_id(node_id), _resolve_iri(predicate_iri), literal))
@@ -409,7 +409,7 @@ def update_property(
     )
     new_literal = rdflib.Literal(
         new_value,
-        datatype=rdflib.URIRef(new_datatype) if new_datatype else None,
+        datatype=_resolve_iri(new_datatype) if new_datatype else None,
         lang=new_language or None,
     )
     _graph.remove((subject, predicate, old_literal))

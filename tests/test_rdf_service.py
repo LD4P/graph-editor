@@ -325,6 +325,20 @@ def test_add_and_delete_property():
     assert alice["properties"] == []
 
 
+def test_add_property_expands_a_bound_prefix_in_the_predicate_iri():
+    load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
+    projection = add_property(ALICE, "rdfs:label", "Alice", None, None)
+    alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
+    assert alice["properties"][0]["predicateIri"] == str(rdflib.RDFS.label)
+
+
+def test_add_property_treats_an_unbound_looking_prefix_as_a_literal_iri():
+    load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
+    projection = add_property(ALICE, NAME, "Alice", None, None)
+    alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
+    assert alice["properties"][0]["predicateIri"] == NAME
+
+
 def test_update_property_replaces_value_in_a_single_undoable_step():
     load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
     add_property(ALICE, NAME, "Alice", None, None)

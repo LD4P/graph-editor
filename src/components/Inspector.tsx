@@ -169,7 +169,11 @@ export default function Inspector() {
 
       <label style={{ display: "flex", flexDirection: "column" }}>
         Predicate IRI
-        <input value={propPredicate} onChange={(event) => setPropPredicate(event.target.value)} />
+        <input
+          value={propPredicate}
+          onChange={(event) => setPropPredicate(event.target.value)}
+          placeholder="e.g. rdfs:label or full URI"
+        />
       </label>
       <label style={{ display: "flex", flexDirection: "column" }}>
         Value

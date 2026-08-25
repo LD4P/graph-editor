@@ -86,6 +86,20 @@ def _term_from_id(term_id):
     return rdflib.URIRef(term_id)
 
 
+def _resolve_iri(value):
+    """Expand a bound prefix (e.g. "rdf:type") to its full URI.
+
+    Falls back to treating `value` as a literal URI whenever it isn't a
+    "prefix:suffix" CURIE with a prefix currently bound on the graph --
+    which is also what happens for a plain absolute URI like
+    "http://example.org/name", since "http" is never a bound prefix.
+    """
+    try:
+        return _graph.namespace_manager.expand_curie(value)
+    except (ValueError, TypeError):
+        return rdflib.URIRef(value)
+
+
 def _compact(graph, term):
     if isinstance(term, rdflib.BNode):
         return f"_:{term}"
@@ -360,7 +374,7 @@ def add_property(node_id, predicate_iri, value, datatype=None, language=None):
         datatype=rdflib.URIRef(datatype) if datatype else None,
         lang=language or None,
     )
-    _graph.add((_term_from_id(node_id), rdflib.URIRef(predicate_iri), literal))
+    _graph.add((_term_from_id(node_id), _resolve_iri(predicate_iri), literal))
     return _project(_graph)
 
 

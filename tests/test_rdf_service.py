@@ -353,6 +353,46 @@ def test_add_property_treats_an_unbound_looking_prefix_as_a_literal_iri():
     assert alice["properties"][0]["predicateIri"] == NAME
 
 
+def test_add_property_with_an_absolute_uri_value_creates_an_edge_instead_of_a_literal():
+    load_rdf("", format="nt")
+    projection = add_property(ALICE, KNOWS, BOB, None, None)
+    alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
+    assert alice["properties"] == []
+    edge = projection["edges"][0]
+    assert edge["source"] == ALICE
+    assert edge["target"] == BOB
+    assert edge["predicateIri"] == KNOWS
+
+
+def test_add_property_with_a_bracketed_uri_value_creates_an_edge():
+    load_rdf("", format="nt")
+    projection = add_property(ALICE, KNOWS, f"<{BOB}>", None, None)
+    assert projection["edges"][0]["target"] == BOB
+
+
+def test_add_property_with_a_bound_prefix_value_creates_an_edge():
+    load_rdf("", format="nt")
+    projection = add_property(ALICE, KNOWS, "rdfs:Resource", None, None)
+    assert projection["edges"][0]["target"] == str(rdflib.RDFS.Resource)
+
+
+def test_add_property_with_a_blank_node_value_creates_and_reuses_a_blank_node():
+    load_rdf("", format="nt")
+    first = add_property(ALICE, KNOWS, "_:scratch", None, None)
+    assert first["edges"][0]["target"] == "_:scratch"
+
+    second = add_property(BOB, KNOWS, "_:scratch", None, None)
+    assert {edge["target"] for edge in second["edges"]} == {"_:scratch"}
+    assert len([n for n in second["nodes"] if n["id"] == "_:scratch"]) == 1
+
+
+def test_add_property_with_a_colon_but_unbound_prefix_stays_a_literal():
+    load_rdf(f"<{ALICE}> <{NAME}> \"Alice\" .", format="nt")
+    projection = add_property(ALICE, KNOWS, "3:30pm", None, None)
+    alice = next(n for n in projection["nodes"] if n["id"] == ALICE)
+    assert any(p["predicateIri"] == KNOWS and p["value"] == "3:30pm" for p in alice["properties"])
+
+
 def test_add_property_expands_a_bound_prefix_in_the_datatype_iri():
     load_rdf(f"<{ALICE}> <{KNOWS}> <{BOB}> .", format="nt")
     projection = add_property(ALICE, NAME, "2024-01-01", "xsd:date", None)

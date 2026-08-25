@@ -183,7 +183,11 @@ export default function Inspector() {
       </label>
       <label style={{ display: "flex", flexDirection: "column" }}>
         Value
-        <input value={propValue} onChange={(event) => setPropValue(event.target.value)} />
+        <input
+          value={propValue}
+          onChange={(event) => setPropValue(event.target.value)}
+          placeholder="text, or a URI/_:blank node to link a resource"
+        />
       </label>
       <label style={{ display: "flex", flexDirection: "column" }}>
         Datatype IRI (optional)

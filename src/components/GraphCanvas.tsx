@@ -80,7 +80,7 @@ export default function GraphCanvas() {
           {
             name: "predicate",
             label: "Predicate IRI",
-            placeholder: "http://example.org/knows",
+            placeholder: "e.g. rdfs:seeAlso or http://example.org/knows",
             options: predicates,
           },
         ],

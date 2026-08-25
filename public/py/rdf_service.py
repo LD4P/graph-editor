@@ -86,6 +86,43 @@ def _term_from_id(term_id):
     return rdflib.URIRef(term_id)
 
 
+def _resolve_iri(value):
+    """Expand a bound prefix (e.g. "rdf:type") to its full URI.
+
+    Falls back to treating `value` as a literal URI whenever it isn't a
+    "prefix:suffix" CURIE with a prefix currently bound on the graph --
+    which is also what happens for a plain absolute URI like
+    "http://example.org/name", since "http" is never a bound prefix.
+    """
+    try:
+        return _graph.namespace_manager.expand_curie(value)
+    except (ValueError, TypeError):
+        return rdflib.URIRef(value)
+
+
+def _resolve_value_term(value):
+    """Interpret an Add-property Value input as a blank node, an IRI, or None.
+
+    Recognizes "_:name" for a blank node (reusing an existing one if that
+    id is already in the graph), "<...>" or a bound "prefix:local" CURIE
+    or an absolute "scheme://..." URI for a resource reference. Returns
+    None for anything else, meaning the caller should build a Literal --
+    the historical behavior, and still what happens for the vast majority
+    of property values.
+    """
+    if value.startswith("_:"):
+        return rdflib.BNode(value[2:])
+    if value.startswith("<") and value.endswith(">"):
+        return rdflib.URIRef(value[1:-1])
+    if "://" in value:
+        return rdflib.URIRef(value)
+    if ":" in value:
+        prefix = value.split(":", 1)[0]
+        if _graph.namespace_manager.store.namespace(prefix) is not None:
+            return _resolve_iri(value)
+    return None
+
+
 def _compact(graph, term):
     if isinstance(term, rdflib.BNode):
         return f"_:{term}"
@@ -319,7 +356,7 @@ def delete_node(node_id):
 
 def add_type(node_id, type_iri):
     _snapshot()
-    _graph.add((_term_from_id(node_id), RDF.type, rdflib.URIRef(type_iri)))
+    _graph.add((_term_from_id(node_id), RDF.type, _resolve_iri(type_iri)))
     return _project(_graph)
 
 
@@ -334,7 +371,7 @@ def add_edge(source_id, predicate_iri, target_id):
     _graph.add(
         (
             _term_from_id(source_id),
-            rdflib.URIRef(predicate_iri),
+            _resolve_iri(predicate_iri),
             _term_from_id(target_id),
         )
     )
@@ -355,12 +392,14 @@ def delete_edge(source_id, predicate_iri, target_id):
 
 def add_property(node_id, predicate_iri, value, datatype=None, language=None):
     _snapshot()
-    literal = rdflib.Literal(
-        value,
-        datatype=rdflib.URIRef(datatype) if datatype else None,
-        lang=language or None,
-    )
-    _graph.add((_term_from_id(node_id), rdflib.URIRef(predicate_iri), literal))
+    object_term = _resolve_value_term(value)
+    if object_term is None:
+        object_term = rdflib.Literal(
+            value,
+            datatype=_resolve_iri(datatype) if datatype else None,
+            lang=language or None,
+        )
+    _graph.add((_term_from_id(node_id), _resolve_iri(predicate_iri), object_term))
     return _project(_graph)
 
 
@@ -395,7 +434,7 @@ def update_property(
     )
     new_literal = rdflib.Literal(
         new_value,
-        datatype=rdflib.URIRef(new_datatype) if new_datatype else None,
+        datatype=_resolve_iri(new_datatype) if new_datatype else None,
         lang=new_language or None,
     )
     _graph.remove((subject, predicate, old_literal))

@@ -24,6 +24,7 @@ export default function Inspector() {
   const [typeIri, setTypeIri] = useState("");
   const [propPredicate, setPropPredicate] = useState("");
   const [propValue, setPropValue] = useState("");
+  const [propDatatype, setPropDatatype] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editDatatype, setEditDatatype] = useState("");
@@ -63,9 +64,10 @@ export default function Inspector() {
     const predicate = propPredicate.trim();
     const value = propValue.trim();
     if (!predicate || !value) return;
-    setProjection(await addProperty(node!.id, predicate, value, null, null));
+    setProjection(await addProperty(node!.id, predicate, value, propDatatype.trim() || null, null));
     setPropPredicate("");
     setPropValue("");
+    setPropDatatype("");
   }
 
   function startEditingProperty(index: number, property: RdfProperty) {
@@ -117,7 +119,11 @@ export default function Inspector() {
 
       <label style={{ display: "flex", flexDirection: "column" }}>
         Add type (IRI)
-        <input value={typeIri} onChange={(event) => setTypeIri(event.target.value)} />
+        <input
+          value={typeIri}
+          onChange={(event) => setTypeIri(event.target.value)}
+          placeholder="e.g. rdfs:Resource or full URI"
+        />
       </label>
       <button onClick={handleAddType}>Add type</button>
 
@@ -136,7 +142,7 @@ export default function Inspector() {
                 <input
                   value={editDatatype}
                   onChange={(event) => setEditDatatype(event.target.value)}
-                  placeholder="Datatype IRI (optional)"
+                  placeholder="Datatype IRI (optional), e.g. xsd:date"
                 />
                 <input
                   value={editLanguage}
@@ -169,11 +175,27 @@ export default function Inspector() {
 
       <label style={{ display: "flex", flexDirection: "column" }}>
         Predicate IRI
-        <input value={propPredicate} onChange={(event) => setPropPredicate(event.target.value)} />
+        <input
+          value={propPredicate}
+          onChange={(event) => setPropPredicate(event.target.value)}
+          placeholder="e.g. rdfs:label or full URI"
+        />
       </label>
       <label style={{ display: "flex", flexDirection: "column" }}>
         Value
-        <input value={propValue} onChange={(event) => setPropValue(event.target.value)} />
+        <input
+          value={propValue}
+          onChange={(event) => setPropValue(event.target.value)}
+          placeholder="text, or a URI/_:blank node to link a resource"
+        />
+      </label>
+      <label style={{ display: "flex", flexDirection: "column" }}>
+        Datatype IRI (optional)
+        <input
+          value={propDatatype}
+          onChange={(event) => setPropDatatype(event.target.value)}
+          placeholder="e.g. xsd:date or full URI"
+        />
       </label>
       <button onClick={handleAddProperty}>Add property</button>
 

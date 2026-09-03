@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { RdfProperty } from "../model/rdfGraphModel";
 import { useGraphStore } from "../state/graphStore";
 import { addProperty, addType, deleteNode, deleteProperty, renameNode, updateProperty } from "../lib/pyBridge";
+import { BLANK_NODE_PREFIX, generateBlankNodeId } from "../lib/blankNodes";
 
 const panelStyle: React.CSSProperties = {
   width: 280,
@@ -14,6 +15,28 @@ const panelStyle: React.CSSProperties = {
   overflowY: "auto",
 };
 
+// The Value input and its ghost-text overlay have to share a font and line box
+// for the suggestion to sit exactly where the typed text ends.
+const valueInputStyle: React.CSSProperties = {
+  font: "inherit",
+  boxSizing: "border-box",
+  width: "100%",
+  border: "1px solid #ccc",
+  padding: "2px 4px",
+};
+
+const valueGhostStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  display: "flex",
+  alignItems: "center",
+  padding: "0 5px",
+  font: "inherit",
+  whiteSpace: "pre",
+  overflow: "hidden",
+  pointerEvents: "none",
+};
+
 export default function Inspector() {
   const projection = useGraphStore((state) => state.projection);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
@@ -24,6 +47,7 @@ export default function Inspector() {
   const [typeIri, setTypeIri] = useState("");
   const [propPredicate, setPropPredicate] = useState("");
   const [propValue, setPropValue] = useState("");
+  const [propValueSuggestion, setPropValueSuggestion] = useState<string | null>(null);
   const [propDatatype, setPropDatatype] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -60,6 +84,28 @@ export default function Inspector() {
     setTypeIri("");
   }
 
+  /** Offer a generated id as soon as the value is just the blank node notation. */
+  function handlePropValueChange(next: string) {
+    setPropValue(next);
+    if (next !== BLANK_NODE_PREFIX) {
+      setPropValueSuggestion(null);
+    } else if (!propValueSuggestion) {
+      setPropValueSuggestion(generateBlankNodeId(projection.nodes.map((candidate) => candidate.id)));
+    }
+  }
+
+  function handlePropValueKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (!propValueSuggestion) return;
+    if (event.key === "Tab" && !event.shiftKey) {
+      event.preventDefault();
+      setPropValue(propValueSuggestion);
+      setPropValueSuggestion(null);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setPropValueSuggestion(null);
+    }
+  }
+
   async function handleAddProperty() {
     const predicate = propPredicate.trim();
     const value = propValue.trim();
@@ -67,6 +113,7 @@ export default function Inspector() {
     setProjection(await addProperty(node!.id, predicate, value, propDatatype.trim() || null, null));
     setPropPredicate("");
     setPropValue("");
+    setPropValueSuggestion(null);
     setPropDatatype("");
   }
 
@@ -183,11 +230,24 @@ export default function Inspector() {
       </label>
       <label style={{ display: "flex", flexDirection: "column" }}>
         Value
-        <input
-          value={propValue}
-          onChange={(event) => setPropValue(event.target.value)}
-          placeholder="text, or a URI/_:blank node to link a resource"
-        />
+        <span style={{ position: "relative", display: "block" }}>
+          <input
+            value={propValue}
+            onChange={(event) => handlePropValueChange(event.target.value)}
+            onKeyDown={handlePropValueKeyDown}
+            placeholder="text, or a URI/_:blank node to link a resource"
+            style={valueInputStyle}
+          />
+          {propValueSuggestion && (
+            <span style={valueGhostStyle} aria-hidden="true">
+              <span style={{ color: "transparent" }}>{propValue}</span>
+              <span style={{ color: "#999" }}>{propValueSuggestion.slice(propValue.length)}</span>
+            </span>
+          )}
+        </span>
+        {propValueSuggestion && (
+          <span style={{ color: "#777", fontSize: 11 }}>Tab to accept, or keep typing your own id</span>
+        )}
       </label>
       <label style={{ display: "flex", flexDirection: "column" }}>
         Datatype IRI (optional)

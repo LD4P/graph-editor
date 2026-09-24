@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   Controls,
@@ -12,11 +12,11 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { layoutProjection } from "../lib/layout";
+import { buildFlowElements, computeLayoutPositions } from "../lib/layout";
 import ResourceNode, { type ResourceNodeData } from "./ResourceNode";
 import CbdGroupNode, { type CbdGroupNodeData } from "./CbdGroupNode";
 import ResourcePredicateEdge from "./ResourcePredicateEdge";
-import { useGraphStore } from "../state/graphStore";
+import { useGraphStore, type Position } from "../state/graphStore";
 import { useDialogStore } from "../state/dialogStore";
 import { addEdge, listPredicates } from "../lib/pyBridge";
 
@@ -27,15 +27,48 @@ export default function GraphCanvas() {
   const projection = useGraphStore((state) => state.projection);
   const positions = useGraphStore((state) => state.positions);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
+  const layoutMode = useGraphStore((state) => state.layoutMode);
   const setPosition = useGraphStore((state) => state.setPosition);
   const setProjection = useGraphStore((state) => state.setProjection);
   const selectNode = useGraphStore((state) => state.selectNode);
   const openDialog = useDialogStore((state) => state.openDialog);
 
-  const { nodes, edges } = useMemo(
-    () => layoutProjection(projection, positions, selectedNodeId),
-    [projection, positions, selectedNodeId],
+  // The last force layout, used to warm-start the next one so an edit only
+  // nudges nearby nodes instead of reshuffling the graph.
+  const previousForcePositions = useRef<Record<string, Position>>({});
+  const layout = useMemo(
+    () =>
+      computeLayoutPositions(projection, layoutMode, positions, previousForcePositions.current),
+    [projection, layoutMode, positions],
   );
+  useEffect(() => {
+    if (layout.settled) previousForcePositions.current = layout.settled;
+  }, [layout]);
+
+  // Positions of nodes mid-drag. They're only committed to the store (and so
+  // re-run the layout) when the drag ends, not on every mouse move.
+  const [dragPositions, setDragPositions] = useState<Record<string, Position>>({});
+
+  // Sizes React Flow has measured for each node. Nodes are rebuilt from the
+  // projection on every render, so these have to be passed back in or React
+  // Flow treats every node as unmeasured (and warns when one is dragged).
+  const [measured, setMeasured] = useState<Record<string, { width: number; height: number }>>(
+    {},
+  );
+
+  const { nodes, edges } = useMemo(() => {
+    const elements = buildFlowElements(
+      projection,
+      { ...layout.positions, ...dragPositions },
+      selectedNodeId,
+    );
+    return {
+      ...elements,
+      nodes: elements.nodes.map((node) =>
+        measured[node.id] ? { ...node, measured: measured[node.id] } : node,
+      ),
+    };
+  }, [projection, layout, dragPositions, selectedNodeId, measured]);
 
   const instanceRef = useRef<ReactFlowInstance<
     Node<ResourceNodeData | CbdGroupNodeData>,
@@ -51,8 +84,26 @@ export default function GraphCanvas() {
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       for (const change of changes) {
-        if (change.type === "position" && change.position) {
-          setPosition(change.id, change.position);
+        if (change.type === "dimensions" && change.dimensions) {
+          const { id, dimensions } = change;
+          setMeasured((current) =>
+            current[id]?.width === dimensions.width && current[id]?.height === dimensions.height
+              ? current
+              : { ...current, [id]: dimensions },
+          );
+          continue;
+        }
+        if (change.type !== "position" || !change.position) continue;
+        const { id, position } = change;
+        if (change.dragging) {
+          setDragPositions((current) => ({ ...current, [id]: position }));
+        } else {
+          setPosition(id, position);
+          setDragPositions((current) => {
+            const next = { ...current };
+            delete next[id];
+            return next;
+          });
         }
       }
     },

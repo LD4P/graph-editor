@@ -1,9 +1,10 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import type { RdfProjection } from "../model/rdfGraphModel";
-import type { Position } from "../state/graphStore";
+import type { LayoutMode, Position } from "../state/graphStore";
 import type { ResourceNodeData } from "../components/ResourceNode";
 import type { CbdGroupNodeData } from "../components/CbdGroupNode";
+import { forceDirectedPositions, type ForceLayoutResult } from "./forceLayout";
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 120;
@@ -12,14 +13,32 @@ const NODE_HEIGHT = 120;
 // clusters at least `nodesep` apart.
 const GROUP_PADDING = 16;
 
-export function layoutProjection(
+/**
+ * Compute every node's top-left position. Nodes in `overridePositions` (the
+ * ones the user has dragged) keep that position; the force layout also
+ * arranges the rest around them, and warm-starts from `previousPositions`
+ * (the `settled` positions it returned last time).
+ */
+export function computeLayoutPositions(
   projection: RdfProjection,
+  mode: LayoutMode,
   overridePositions: Record<string, Position> = {},
-  selectedNodeId: string | null = null,
-): {
-  nodes: Node<ResourceNodeData | CbdGroupNodeData>[];
-  edges: Edge[];
-} {
+  previousPositions: Record<string, Position> = {},
+): Partial<ForceLayoutResult> & Pick<ForceLayoutResult, "positions"> {
+  if (mode === "force") {
+    return forceDirectedPositions(projection, overridePositions, previousPositions, {
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+      groupPadding: GROUP_PADDING,
+    });
+  }
+  return { positions: dagrePositions(projection, overridePositions) };
+}
+
+function dagrePositions(
+  projection: RdfProjection,
+  overridePositions: Record<string, Position>,
+): Record<string, Position> {
   // Groups are disjoint (the backend merges any that share a member), so
   // every node has at most one group and can be given a single dagre
   // cluster parent. Compound clustering makes dagre keep sibling clusters
@@ -48,23 +67,37 @@ export function layoutProjection(
 
   dagre.layout(graph);
 
-  const nodes: Node<ResourceNodeData>[] = projection.nodes.map((node) => {
-    const override = overridePositions[node.id];
+  const positions: Record<string, Position> = {};
+  for (const node of projection.nodes) {
     const { x, y } = graph.node(node.id);
-    const position = override ?? { x: x - NODE_WIDTH / 2, y: y - NODE_HEIGHT / 2 };
-    return {
-      id: node.id,
-      type: "resource",
-      position,
-      selected: node.id === selectedNodeId,
-      data: {
-        iri: node.id,
-        label: node.label,
-        types: node.types,
-        properties: node.properties,
-      },
+    positions[node.id] = overridePositions[node.id] ?? {
+      x: x - NODE_WIDTH / 2,
+      y: y - NODE_HEIGHT / 2,
     };
-  });
+  }
+  return positions;
+}
+
+export function buildFlowElements(
+  projection: RdfProjection,
+  positions: Record<string, Position>,
+  selectedNodeId: string | null = null,
+): {
+  nodes: Node<ResourceNodeData | CbdGroupNodeData>[];
+  edges: Edge[];
+} {
+  const nodes: Node<ResourceNodeData>[] = projection.nodes.map((node) => ({
+    id: node.id,
+    type: "resource",
+    position: positions[node.id],
+    selected: node.id === selectedNodeId,
+    data: {
+      iri: node.id,
+      label: node.label,
+      types: node.types,
+      properties: node.properties,
+    },
+  }));
 
   const edges: Edge[] = projection.edges.map((edge) => ({
     id: edge.id,

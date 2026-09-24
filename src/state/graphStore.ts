@@ -8,16 +8,20 @@ export interface Position {
   y: number;
 }
 
+export type LayoutMode = "force" | "dagre";
+
 interface GraphState {
   projection: RdfProjection;
   positions: Record<string, Position>;
   selectedNodeId: string | null;
+  layoutMode: LayoutMode;
   canUndo: boolean;
   canRedo: boolean;
   setProjection: (projection: RdfProjection) => void;
   resetPositions: () => void;
   setPosition: (nodeId: string, position: Position) => void;
   selectNode: (nodeId: string | null) => void;
+  setLayoutMode: (mode: LayoutMode) => void;
   refreshHistoryStatus: () => Promise<void>;
 }
 
@@ -25,6 +29,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   projection: { nodes: [], edges: [], groups: [] },
   positions: {},
   selectedNodeId: null,
+  layoutMode: "force",
   canUndo: false,
   canRedo: false,
   setProjection: (projection) => {
@@ -44,6 +49,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   setPosition: (nodeId, position) =>
     set((state) => ({ positions: { ...state.positions, [nodeId]: position } })),
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
+  setLayoutMode: (mode) => set({ layoutMode: mode }),
   refreshHistoryStatus: async () => {
     const status = await historyStatus();
     set({ canUndo: status.canUndo, canRedo: status.canRedo });

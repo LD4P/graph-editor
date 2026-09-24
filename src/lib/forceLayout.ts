@@ -262,9 +262,12 @@ interface Box {
  * ungrouped cards) apart from each other, the way dagre's compound
  * clustering kept groups separate. Pinned cards never move, and a group
  * holding a pinned card is never moved as a whole, so the user's placement
- * is kept exactly.
+ * is kept exactly. Updates `positions` in place.
+ *
+ * Exported for tests: the simulation's own repulsion usually leaves nothing
+ * to fix, so tests hand this overlapping positions directly.
  */
-function removeOverlaps(
+export function removeOverlaps(
   projection: RdfProjection,
   positions: Record<string, Position>,
   pinnedPositions: Record<string, Position>,
@@ -322,9 +325,26 @@ function applyBoxes(boxes: Box[], positions: Record<string, Position>) {
   for (const box of boxes) positions[box.memberIds[0]] = { x: box.x, y: box.y };
 }
 
+function overlaps(a: Box, b: Box, gap: number) {
+  return (
+    Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) + gap > 0 &&
+    Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) + gap > 0
+  );
+}
+
 // Repeatedly push each overlapping pair apart along whichever axis needs the
 // smaller move, splitting the move between the two boxes unless one is fixed.
+// If that move would shove a box into a fixed one (a card caught between two
+// pinned cards, say), push along the other axis instead, or the box would
+// just bounce between the two.
 function separate(boxes: Box[], gap: number) {
+  const fixedBoxes = boxes.filter((box) => box.fixed);
+  const hitsFixed = (box: Box, dx: number, dy: number, ignore: Box[]) =>
+    (dx !== 0 || dy !== 0) &&
+    fixedBoxes.some(
+      (fixed) => !ignore.includes(fixed) && overlaps({ ...box, x: box.x + dx, y: box.y + dy }, fixed, gap),
+    );
+
   for (let pass = 0; pass < MAX_SEPARATION_PASSES; pass++) {
     let moved = false;
     for (let i = 0; i < boxes.length; i++) {
@@ -340,15 +360,21 @@ function separate(boxes: Box[], gap: number) {
 
         const aShare = a.fixed ? 0 : b.fixed ? 1 : 0.5;
         const bShare = 1 - aShare;
-        if (overlapX < overlapY) {
-          const sign = a.x + a.width / 2 <= b.x + b.width / 2 ? -1 : 1;
-          a.x += sign * overlapX * aShare;
-          b.x -= sign * overlapX * bShare;
-        } else {
-          const sign = a.y + a.height / 2 <= b.y + b.height / 2 ? -1 : 1;
-          a.y += sign * overlapY * aShare;
-          b.y -= sign * overlapY * bShare;
-        }
+        const signX = a.x + a.width / 2 <= b.x + b.width / 2 ? -1 : 1;
+        const signY = a.y + a.height / 2 <= b.y + b.height / 2 ? -1 : 1;
+        const alongX = { dx: signX * overlapX, dy: 0 };
+        const alongY = { dx: 0, dy: signY * overlapY };
+        const candidates = overlapX < overlapY ? [alongX, alongY] : [alongY, alongX];
+        const { dx, dy } =
+          candidates.find(
+            ({ dx, dy }) =>
+              !hitsFixed(a, dx * aShare, dy * aShare, [a, b]) &&
+              !hitsFixed(b, -dx * bShare, -dy * bShare, [a, b]),
+          ) ?? candidates[0];
+        a.x += dx * aShare;
+        a.y += dy * aShare;
+        b.x -= dx * bShare;
+        b.y -= dy * bShare;
         moved = true;
       }
     }

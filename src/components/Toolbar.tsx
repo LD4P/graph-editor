@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { addNode, loadRdf, redo, serializeRdf, undo } from "../lib/pyBridge";
 import { FORMATS, FILE_EXTENSIONS } from "../lib/rdfFormats";
-import { useGraphStore } from "../state/graphStore";
+import { useGraphStore, type LayoutMode } from "../state/graphStore";
 import { useDialogStore } from "../state/dialogStore";
 import { usePanelStore } from "../state/panelStore";
 
@@ -22,6 +22,8 @@ export default function Toolbar() {
   const selectNode = useGraphStore((state) => state.selectNode);
   const canUndo = useGraphStore((state) => state.canUndo);
   const canRedo = useGraphStore((state) => state.canRedo);
+  const layoutMode = useGraphStore((state) => state.layoutMode);
+  const setLayoutMode = useGraphStore((state) => state.setLayoutMode);
   const openDialog = useDialogStore((state) => state.openDialog);
   const toggleValidationPanel = usePanelStore((state) => state.toggleValidationPanel);
   const toggleNamespacePanel = usePanelStore((state) => state.toggleNamespacePanel);
@@ -180,7 +182,17 @@ export default function Toolbar() {
           Load URL
         </button>
 
-        <button onClick={handleAddResource} style={{ marginLeft: "auto" }}>
+        <label style={{ marginLeft: "auto" }}>
+          Layout:{" "}
+          <select
+            value={layoutMode}
+            onChange={(event) => setLayoutMode(event.target.value as LayoutMode)}
+          >
+            <option value="force">Force-directed</option>
+            <option value="dagre">Hierarchical (dagre)</option>
+          </select>
+        </label>
+        <button onClick={handleAddResource}>
           Add resource
         </button>
         <button onClick={toggleValidationPanel}>Validate (SHACL)</button>

@@ -37,5 +37,6 @@ uv reads the Python version from `.python-version` and installs the dependencies
 
 ### Other commands
 
+- `npm test`: run the TypeScript tests (Vitest)
 - `npm run build`: type-check and build for production into `dist/`
 - `npm run preview`: serve the production build locally

@@ -25,8 +25,13 @@ Hosted at https://ld4p.github.io/graph-editor/, deployed via `.github/workflows/
   (`RdfProjection`, `RdfNode`, `RdfEdge`, SHACL/namespace result types).
 - `src/state/graphStore.ts` (zustand) — holds the current projection, node positions, selection,
   and undo/redo status; `setProjection` also fires autosave to `localStorage`.
-- `src/lib/layout.ts` — runs dagre over the projection to lay out React Flow nodes/edges,
-  respecting any manually-dragged position overrides from the store.
+- `src/lib/layout.ts` — lays out the projection as React Flow nodes/edges, with either the
+  force-directed layout (default) or dagre, chosen by `layoutMode` in the store. Manually-dragged
+  positions from the store are always kept.
+- `src/lib/forceLayout.ts` — Springy-style force simulation used by the default layout. CBD groups
+  stay clustered, an overlap pass keeps cards and group boxes apart, dragged nodes stay pinned, and
+  each run warm-starts from the previous `settled` positions (kept in `GraphCanvas`) so edits
+  don't reshuffle the graph.
 - `src/components/` — `GraphCanvas.tsx` (React Flow canvas), `ResourceNode.tsx` /
   `ResourcePredicateEdge.tsx` (custom node/edge renderers with inline editing), `Inspector.tsx`,
   `NamespacePanel.tsx`, `ValidationPanel.tsx`, `Toolbar.tsx`, `Dialog.tsx`, `AutosaveBanner.tsx`.
@@ -53,8 +58,12 @@ npm run build
 
 # Python tests (exercise rdf_service.py directly, no browser/Pyodide needed)
 uv run pytest
+
+# TypeScript tests (Vitest; *.test.ts files next to the code they test)
+npm test
 ```
 
 `tests/test_rdf_service.py` imports `rdf_service` directly (pytest's `pythonpath` is set to
 `public/py` in `pyproject.toml`) and is the fast way to verify RDF-logic changes without spinning
-up the browser/Pyodide runtime. There is no Node test suite configured (`npm test` is unused).
+up the browser/Pyodide runtime. `npm test` runs the Vitest suite, which currently covers the
+layout code in `src/lib/` (`forceLayout.test.ts`, `layout.test.ts`).

@@ -1,3 +1,4 @@
+import { MarkerType } from "@xyflow/react";
 import { describe, expect, it } from "vitest";
 import type { RdfProjection } from "../model/rdfGraphModel";
 import { buildFlowElements, computeLayoutPositions } from "./layout";
@@ -59,13 +60,19 @@ describe("buildFlowElements", () => {
   it("maps projection edges to predicate edges", () => {
     const { edges } = buildFlowElements(projection, positions);
     expect(edges).toEqual([
-      {
+      expect.objectContaining({
         id: "a->b",
         type: "resourcePredicate",
         source: "a",
         target: "b",
         data: { predicate: "p", predicateIri: "ex:p" },
-      },
+      }),
     ]);
+  });
+
+  it("puts an arrowhead only at the object end of each edge", () => {
+    const [edge] = buildFlowElements(projection, positions).edges;
+    expect(edge.markerEnd).toMatchObject({ type: MarkerType.ArrowClosed });
+    expect(edge.markerStart).toBeUndefined();
   });
 });

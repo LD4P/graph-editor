@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { RdfProperty } from "../model/rdfGraphModel";
 import { useGraphStore } from "../state/graphStore";
 import { addProperty, addType, deleteNode, deleteProperty, renameNode, updateProperty } from "../lib/pyBridge";
-import { BLANK_NODE_PREFIX, generateBlankNodeId } from "../lib/blankNodes";
+import { generateBlankNodeId } from "../lib/blankNodes";
 
 const panelStyle: React.CSSProperties = {
   width: 280,
@@ -15,28 +15,6 @@ const panelStyle: React.CSSProperties = {
   overflowY: "auto",
 };
 
-// The Value input and its ghost-text overlay have to share a font and line box
-// for the suggestion to sit exactly where the typed text ends.
-const valueInputStyle: React.CSSProperties = {
-  font: "inherit",
-  boxSizing: "border-box",
-  width: "100%",
-  border: "1px solid #ccc",
-  padding: "2px 4px",
-};
-
-const valueGhostStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  display: "flex",
-  alignItems: "center",
-  padding: "0 5px",
-  font: "inherit",
-  whiteSpace: "pre",
-  overflow: "hidden",
-  pointerEvents: "none",
-};
-
 export default function Inspector() {
   const projection = useGraphStore((state) => state.projection);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
@@ -47,12 +25,12 @@ export default function Inspector() {
   const [typeIri, setTypeIri] = useState("");
   const [propPredicate, setPropPredicate] = useState("");
   const [propValue, setPropValue] = useState("");
-  const [propValueSuggestion, setPropValueSuggestion] = useState<string | null>(null);
   const [propDatatype, setPropDatatype] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editDatatype, setEditDatatype] = useState("");
   const [editLanguage, setEditLanguage] = useState("");
+  const propValueInput = useRef<HTMLInputElement>(null);
 
   const node = projection.nodes.find((candidate) => candidate.id === selectedNodeId);
 
@@ -84,26 +62,10 @@ export default function Inspector() {
     setTypeIri("");
   }
 
-  /** Offer a generated id as soon as the value is just the blank node notation. */
-  function handlePropValueChange(next: string) {
-    setPropValue(next);
-    if (next !== BLANK_NODE_PREFIX) {
-      setPropValueSuggestion(null);
-    } else if (!propValueSuggestion) {
-      setPropValueSuggestion(generateBlankNodeId(projection.nodes.map((candidate) => candidate.id)));
-    }
-  }
-
-  function handlePropValueKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (!propValueSuggestion) return;
-    if (event.key === "Tab" && !event.shiftKey) {
-      event.preventDefault();
-      setPropValue(propValueSuggestion);
-      setPropValueSuggestion(null);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      setPropValueSuggestion(null);
-    }
+  /** Fill the Value field with a fresh blank node id, so Add property links a new blank node. */
+  function handleGenerateBlankNode() {
+    setPropValue(generateBlankNodeId(projection.nodes.map((candidate) => candidate.id)));
+    propValueInput.current?.focus();
   }
 
   async function handleAddProperty() {
@@ -113,7 +75,6 @@ export default function Inspector() {
     setProjection(await addProperty(node!.id, predicate, value, propDatatype.trim() || null, null));
     setPropPredicate("");
     setPropValue("");
-    setPropValueSuggestion(null);
     setPropDatatype("");
   }
 
@@ -228,27 +189,22 @@ export default function Inspector() {
           placeholder="e.g. rdfs:label or full URI"
         />
       </label>
-      <label style={{ display: "flex", flexDirection: "column" }}>
-        Value
-        <span style={{ position: "relative", display: "block" }}>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <label htmlFor="add-property-value">Value</label>
+        <span style={{ display: "flex", gap: 4 }}>
           <input
+            id="add-property-value"
+            ref={propValueInput}
             value={propValue}
-            onChange={(event) => handlePropValueChange(event.target.value)}
-            onKeyDown={handlePropValueKeyDown}
-            placeholder="text, or a URI/_:blank node to link a resource"
-            style={valueInputStyle}
+            onChange={(event) => setPropValue(event.target.value)}
+            placeholder="text, or a URI to link a resource"
+            style={{ flex: 1, minWidth: 0 }}
           />
-          {propValueSuggestion && (
-            <span style={valueGhostStyle} aria-hidden="true">
-              <span style={{ color: "transparent" }}>{propValue}</span>
-              <span style={{ color: "#999" }}>{propValueSuggestion.slice(propValue.length)}</span>
-            </span>
-          )}
+          <button type="button" onClick={handleGenerateBlankNode} style={{ flexShrink: 0 }}>
+            Blank Node
+          </button>
         </span>
-        {propValueSuggestion && (
-          <span style={{ color: "#777", fontSize: 11 }}>Tab to accept, or keep typing your own id</span>
-        )}
-      </label>
+      </div>
       <label style={{ display: "flex", flexDirection: "column" }}>
         Datatype IRI (optional)
         <input

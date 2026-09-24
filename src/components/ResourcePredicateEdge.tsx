@@ -18,6 +18,7 @@ export default function ResourcePredicateEdge({
   source,
   target,
   data,
+  markerEnd,
 }: EdgeProps<ResourcePredicateEdge>) {
   const setProjection = useGraphStore((state) => state.setProjection);
   const openDialog = useDialogStore((state) => state.openDialog);
@@ -45,7 +46,7 @@ export default function ResourcePredicateEdge({
 
   return (
     <>
-      <BaseEdge path={edgePath} />
+      <BaseEdge path={edgePath} markerEnd={markerEnd} />
       <EdgeLabelRenderer>
         <div
           style={{

@@ -1,5 +1,5 @@
 import dagre from "@dagrejs/dagre";
-import type { Edge, Node } from "@xyflow/react";
+import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import type { RdfProjection } from "../model/rdfGraphModel";
 import type { LayoutMode, Position } from "../state/graphStore";
 import type { ResourceNodeData } from "../components/ResourceNode";
@@ -12,6 +12,7 @@ const NODE_HEIGHT = 120;
 // never touch, since dagre's compound clustering already keeps sibling
 // clusters at least `nodesep` apart.
 const GROUP_PADDING = 16;
+const PREDICATE_ARROW = { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "#b1b1b7" };
 
 /**
  * Compute every node's top-left position. Nodes in `overridePositions` (the
@@ -104,6 +105,8 @@ export function buildFlowElements(
     type: "resourcePredicate",
     source: edge.source,
     target: edge.target,
+    // Arrowhead at the object end, so each edge reads subject -> predicate -> object.
+    markerEnd: PREDICATE_ARROW,
     data: { predicate: edge.predicate, predicateIri: edge.predicateIri },
   }));
 

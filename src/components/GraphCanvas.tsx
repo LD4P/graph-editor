@@ -27,6 +27,7 @@ export default function GraphCanvas() {
   const projection = useGraphStore((state) => state.projection);
   const positions = useGraphStore((state) => state.positions);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
+  const focusRequest = useGraphStore((state) => state.focusRequest);
   const layoutMode = useGraphStore((state) => state.layoutMode);
   const setPosition = useGraphStore((state) => state.setPosition);
   const setProjection = useGraphStore((state) => state.setProjection);
@@ -79,7 +80,7 @@ export default function GraphCanvas() {
     if (selectedNodeId && instanceRef.current) {
       instanceRef.current.fitView({ nodes: [{ id: selectedNodeId }], duration: 300 });
     }
-  }, [selectedNodeId, nodes]);
+  }, [selectedNodeId, focusRequest, nodes]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {

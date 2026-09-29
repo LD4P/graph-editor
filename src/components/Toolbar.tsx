@@ -4,6 +4,7 @@ import { FORMATS, FILE_EXTENSIONS } from "../lib/rdfFormats";
 import { useGraphStore, type LayoutMode } from "../state/graphStore";
 import { useDialogStore } from "../state/dialogStore";
 import { usePanelStore } from "../state/panelStore";
+import ResourceSearch from "./ResourceSearch";
 
 const SAMPLE_TURTLE = `@prefix ex: <http://example.org/> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -182,7 +183,10 @@ export default function Toolbar() {
           Load URL
         </button>
 
-        <label style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto" }}>
+          <ResourceSearch />
+        </div>
+        <label>
           Layout:{" "}
           <select
             value={layoutMode}

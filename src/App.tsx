@@ -5,13 +5,14 @@ import ValidationPanel from "./components/ValidationPanel";
 import NamespacePanel from "./components/NamespacePanel";
 import AutosaveBanner from "./components/AutosaveBanner";
 import Dialog from "./components/Dialog";
+import StatusBar from "./components/StatusBar";
 
 export default function App() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", position: "fixed", inset: 0 }}>
       <Toolbar />
       <AutosaveBanner />
-      <div style={{ flex: 1, display: "flex" }}>
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         <div style={{ flex: 1 }}>
           <GraphCanvas />
         </div>
@@ -19,6 +20,7 @@ export default function App() {
         <ValidationPanel />
         <NamespacePanel />
       </div>
+      <StatusBar />
       <Dialog />
     </div>
   );

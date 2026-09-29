@@ -14,6 +14,8 @@ interface GraphState {
   projection: RdfProjection;
   positions: Record<string, Position>;
   selectedNodeId: string | null;
+  /** Bumped by focusNode so the canvas re-zooms even if the node was already selected. */
+  focusRequest: number;
   layoutMode: LayoutMode;
   canUndo: boolean;
   canRedo: boolean;
@@ -21,6 +23,7 @@ interface GraphState {
   resetPositions: () => void;
   setPosition: (nodeId: string, position: Position) => void;
   selectNode: (nodeId: string | null) => void;
+  focusNode: (nodeId: string) => void;
   setLayoutMode: (mode: LayoutMode) => void;
   refreshHistoryStatus: () => Promise<void>;
 }
@@ -29,6 +32,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   projection: { nodes: [], edges: [], groups: [] },
   positions: {},
   selectedNodeId: null,
+  focusRequest: 0,
   layoutMode: "force",
   canUndo: false,
   canRedo: false,
@@ -49,6 +53,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   setPosition: (nodeId, position) =>
     set((state) => ({ positions: { ...state.positions, [nodeId]: position } })),
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
+  focusNode: (nodeId) =>
+    set((state) => ({ selectedNodeId: nodeId, focusRequest: state.focusRequest + 1 })),
   setLayoutMode: (mode) => set({ layoutMode: mode }),
   refreshHistoryStatus: async () => {
     const status = await historyStatus();
